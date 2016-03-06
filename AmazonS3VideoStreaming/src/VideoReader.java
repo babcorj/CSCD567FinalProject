@@ -1,6 +1,6 @@
 //import java.io.File;
 //import java.net.URL;
-import org.bytedeco.javacpp.opencv_videoio.VideoCapture;
+//import org.bytedeco.javacpp.opencv_videoio.VideoCapture;
 import org.bytedeco.javacv.*;
 //import org.bytedeco.javacpp.*;
 //import org.bytedeco.javacpp.indexer.*;
@@ -25,15 +25,14 @@ public class VideoReader implements Runnable {
 		String inputFileName = "myvideo.mp4";
 		File file = new File(inputFileName);
 		FFmpegFrameGrabber grabber = null;
-		VideoCapture vcap = new VideoCapture(file.getAbsolutePath());
+//		VideoCapture vcap = new VideoCapture(file.getAbsolutePath());
 //		vcap.open(file.getAbsolutePath());
-		if(!vcap.isOpened()){
-			System.err.println("Could not open file");
-			return;
-		}
-		Size mysize = new Size(1024, 1024);
-		
-		Mat imread = new Mat();
+//		if(!vcap.isOpened()){
+//			System.err.println("Could not open file");
+//			return;
+//		}
+//		Size mysize = new Size(1024, 1024);
+//		Mat imread = new Mat();
 		
 		
 //		https://stackoverflow.com/questions/28494648/video-compression-using-javacv
@@ -60,8 +59,8 @@ public class VideoReader implements Runnable {
 		try {
 			Frame img;
 			while (true) {
-				//img = grabber.grabFrame();
-				img = vcap.read();
+				img = grabber.grabFrame();
+//				img = vcap.read();
 				if (img != null) {
 					// show image on window
 					canvas.showImage(img);
