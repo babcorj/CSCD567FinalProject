@@ -68,8 +68,8 @@ public class InstantCloudCameraRunner implements Runnable {
 					// show image on window
 					OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
 					myImage = (IplImage) img.opaque;
-					System.out.println("Width: " + img.imageWidth + ", Height: " + img.imageHeight);
-					System.out.println("MyImage: " + myImage.getClass());
+//					System.out.println("Width: " + img.imageWidth + ", Height: " + img.imageHeight);
+//					System.out.println("MyImage: " + myImage.getClass());
 					for(int i = j; i < img.imageWidth * img.imageHeight * 3; i += img.imageWidth*3){
 						myImage.imageData().put(i, (byte) 0);
 					}
