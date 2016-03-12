@@ -1,10 +1,6 @@
 //import java.io.File;
 //import java.net.URL;
-import java.nio.Buffer;
 
-import org.bytedeco.javacpp.opencv_core.CvMat;
-import org.bytedeco.javacpp.opencv_core.IplImage;
-import org.bytedeco.javacpp.opencv_core.Mat;
 import org.bytedeco.javacv.*;
 //import org.bytedeco.javacpp.*;
 //import org.bytedeco.javacpp.indexer.*;
@@ -15,7 +11,7 @@ import org.bytedeco.javacv.*;
 
 //Taken from: https://github.com/bytedeco/javacv#sample-usage
 
-public class InstantCloudCameraRunner implements Runnable {
+public class ICCRunner implements Runnable {
 	private final String PREFIX = "myvideo";
 	private final static String BUCKETNAME = "icc-videostream-00";
 	private final static int MAX_SEGMENTS = 10;
@@ -26,7 +22,7 @@ public class InstantCloudCameraRunner implements Runnable {
 	private static SharedQueue<String> que;
 	
 	//NEED BETTER CLOSING
-	public InstantCloudCameraRunner() {
+	public ICCRunner() {
 		canvas.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 	}
 	@Override
@@ -48,12 +44,12 @@ public class InstantCloudCameraRunner implements Runnable {
 		try {
 			Thread writeThread;
 			int segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
-			Frame[] myImage = new Frame[segmentLength];
+			Frame[] myImage = createEmptyVideo(segmentLength);
 
 			int frameCount = 0;
 			while (true) {
 				if ((myImage[frameCount] = grabber.grab()) != null) {
-					// show image on window
+//DEBUG: COUNT FRAMES
 //					System.out.println("FrameCount: "+frameCount+
 //							"\nFrameLength: "+segmentLength);
 					canvas.showImage(myImage[frameCount]);
@@ -67,6 +63,7 @@ public class InstantCloudCameraRunner implements Runnable {
 						writeThread.start();
 						segmentNum = segmentNum % MAX_SEGMENTS;
 						frameCount = 0;
+//						myImage = createEmptyVideo(segmentLength);
 					}
 				}
 			}
@@ -81,9 +78,13 @@ public class InstantCloudCameraRunner implements Runnable {
 			e.printStackTrace();
 		}
 	}
+	
+	private Frame[] createEmptyVideo(int nframes){
+		return new Frame[nframes];
+	}
 
 	public static void main(String[] args) {
-		InstantCloudCameraRunner iccr = new InstantCloudCameraRunner();
+		ICCRunner iccr = new ICCRunner();
 		que = new SharedQueue<>(MAX_SEGMENTS);
 		s3 = new S3Uploader(BUCKETNAME, que);
 		Thread th = new Thread(iccr);

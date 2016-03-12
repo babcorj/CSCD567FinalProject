@@ -1,7 +1,4 @@
-import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.opencv_core.IplImage;
-import org.bytedeco.javacv.FFmpegFrameRecorder;
-import org.bytedeco.javacv.OpenCVFrameConverter;
 
 /**
  * The compressor class is responsible for taking in a series of frames
@@ -14,15 +11,20 @@ import org.bytedeco.javacv.OpenCVFrameConverter;
  *
  */
 
-public class ICCEditor {
+public class ICCEditor implements Cloneable {
 	private IplImage ipimg;
 	
+	public ICCEditor() {}
 	public ICCEditor(IplImage ipframe){
 		ipimg = ipframe;
 	}
-	
-	public void setImage(IplImage ipframe){
+
+	public void set(IplImage ipframe){
 		ipimg = ipframe;
+	}
+	
+	public IplImage get(){
+		return ipimg;
 	}
 	
 	public void compress(int ratio){
@@ -62,45 +64,46 @@ public class ICCEditor {
 	 * @param	colors is the specific color: RED, BLUE, GREEN
 	 * @param	value is the value to set the color or colors
 	 */
-	public void setPixelValue(Color[] colors, int value){
+	public void setPixelValue(Color color, int value){
 		boolean isRed, isBlue, isGreen;
-		for(int i = 0; i < colors.length; i++){
-			switch(colors[i]){
-			case RED :
-				isRed = true;
-				break;
-			case BLUE :
-				isBlue = true;
-				break;
-			case GREEN :
-				isGreen = true;
-				break;
-			}
+		switch(color){
+		case RED :
+			isRed = true;
+			break;
+		case BLUE :
+			isBlue = true;
+			break;
+		case GREEN :
+			isGreen = true;
+			break;
 		}
-		
-		
-		
+		int fsize = ipimg.arraySize();
+		try{
+			for(int i = 1; i < fsize/3; i ++){
+				ipimg.imageData().put(i, (byte) 0);
+			}
+		} catch(Exception e){
+			e.printStackTrace();
+			return;
+		}
+	}
+
+	public enum Color{
+		RED, BLUE, GREEN;
 	}
 	
-	public void recordVideo(String outputFileName) throws ArrayIndexOutOfBoundsException {
-		OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
-		FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(outputFileName,
-				video[0].width(), video[0].height());
-		recorder.setFormat("flv");
+	public IplImage clone(){
+		int fsize = ipimg.arraySize();
+		IplImage newImg = new IplImage();
 		try{
-			recorder.start();
-			for(int i = 0; i < video.length; i++){
-				recorder.record(converter.convert(video[i]));
+			for(int i = 1; i < fsize; i ++){
+				byte data = ipimg.imageData().get(i);
+				newImg.imageData().put(i, data);
 			}
-			recorder.stop();
 		} catch(Exception e){
 			e.printStackTrace();
 		}
-		System.out.println("Finished Recording!");
-	}
-
-	private enum Color{
-		RED, BLUE, GREEN;
+		return newImg;
 	}
 }
 

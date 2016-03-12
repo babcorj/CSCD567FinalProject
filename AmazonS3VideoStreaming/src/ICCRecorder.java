@@ -27,12 +27,16 @@ public class ICCRecorder implements Runnable {
 //		recorder.setVideoBitrate(img.arrayDepth() * img.width() * img.height() * 3);
 		recorder.setFormat("flv");
 		try{
+			ICCEditor editor = new ICCEditor();
 			recorder.start();
 			for(int i = 0; i < video.length; i++){
 				img = converter.convertToIplImage(video[i]);
-				recorder.record(converter.convert(img));
+				editor.set(img);
+				editor.set(editor.clone());
+				editor.setPixelValue(ICCEditor.Color.RED, 0);
+				recorder.record(converter.convert(editor.get()));
 //				System.out.println(i);
-				Thread.sleep((long)fps * 3);
+//				Thread.sleep((long)fps * 2);
 			}
 			recorder.stop();
 		} catch(Exception e){
