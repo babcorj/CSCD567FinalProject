@@ -20,7 +20,7 @@ public class InstantCloudCameraRunner implements Runnable {
 	private final static String BUCKETNAME = "icc-videostream-00";
 	private final static int MAX_SEGMENTS = 10;
 	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
-	private final double FPS = 30;
+	private final double FPS = 15;
 	private CanvasFrame canvas = new CanvasFrame("Instant Cloud Camera");
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
@@ -46,22 +46,17 @@ public class InstantCloudCameraRunner implements Runnable {
 			e.printStackTrace();
 		}
 		try {
-			Frame img;
 			Thread writeThread;
 			int segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
-			IplImage[] myImage = new IplImage[segmentLength];
-			OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
-//			System.out.println("Frame Rate: " + grabber.getFrameRate());
+			Frame[] myImage = new Frame[segmentLength];
 
 			int frameCount = 0;
 			while (true) {
-//				if ((img = grabber.grab()) != null) {
-				if ((myImage[frameCount] = (IplImage) grabber.grab().opaque) != null) {
+				if ((myImage[frameCount] = grabber.grab()) != null) {
 					// show image on window
-//					myImage[frameCount] = (IplImage) img.opaque;
-					canvas.showImage(converter.convert(myImage[frameCount]));
-					System.out.println("FrameCount: "+frameCount+
-							"\nFrameLength: "+segmentLength);
+//					System.out.println("FrameCount: "+frameCount+
+//							"\nFrameLength: "+segmentLength);
+					canvas.showImage(myImage[frameCount]);
 					frameCount++;
 					//check end of video
 					if(frameCount >= myImage.length){

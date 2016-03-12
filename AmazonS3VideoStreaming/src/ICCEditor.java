@@ -14,14 +14,24 @@ import org.bytedeco.javacv.OpenCVFrameConverter;
  */
 
 public class ICCEditor {
-	private IplImage[] video;
+	private IplImage ipimg;
 	
-	public ICCEditor(IplImage[] theVideo){
-		video = theVideo;
+	public ICCEditor(IplImage ipframe){
+		ipimg = ipframe;
 	}
 	
-	public void compress(){
-		
+	public void setImage(IplImage ipframe){
+		ipimg = ipframe;
+	}
+	
+	public void compress(int ratio){
+		IplImage newImage = IplImage.create(ipimg.width()*3/ratio,
+				ipimg.height()*3/ratio, ipimg.arrayDepth(), 0);
+		int oldlength = ipimg.width() * ipimg.height() * 3;
+		int newlength = oldlength/ratio;
+		for(int i = 0; i < newlength; i++){
+			newImage.imageData(i) = 0;
+		}
 	}
 	
 	/*

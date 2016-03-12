@@ -18,18 +18,21 @@ public class ICCRecorder implements Runnable {
 	}
 	
 	public void run(){
-		IplImage img = (IplImage)video[0].opaque;
+		OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
+		IplImage img = converter.convertToIplImage(video[0]);
 		FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(outputFileName,
 				img.width(), img.height());
-		OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
 		recorder.setFrameRate(fps);
-//		recorder.setVideoBitrate(20 * video[0].width() * video[0].height() * 3);
+//		recorder.setAudioChannels(img.arrayChannels());
+//		recorder.setVideoBitrate(img.arrayDepth() * img.width() * img.height() * 3);
 		recorder.setFormat("flv");
 		try{
 			recorder.start();
 			for(int i = 0; i < video.length; i++){
-				recorder.record(converter.convert(video[i]));
-				System.out.println(i);
+				img = converter.convertToIplImage(video[i]);
+				recorder.record(converter.convert(img));
+//				System.out.println(i);
+				Thread.sleep((long)fps * 3);
 			}
 			recorder.stop();
 		} catch(Exception e){
