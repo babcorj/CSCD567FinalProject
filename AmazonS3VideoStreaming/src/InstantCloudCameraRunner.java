@@ -1,5 +1,10 @@
 //import java.io.File;
 //import java.net.URL;
+import java.nio.Buffer;
+
+import org.bytedeco.javacpp.opencv_core.CvMat;
+import org.bytedeco.javacpp.opencv_core.IplImage;
+import org.bytedeco.javacpp.opencv_core.Mat;
 import org.bytedeco.javacv.*;
 //import org.bytedeco.javacpp.*;
 //import org.bytedeco.javacpp.indexer.*;
@@ -14,6 +19,7 @@ public class InstantCloudCameraRunner implements Runnable {
 	private final String PREFIX = "myvideo";
 	private final static String BUCKETNAME = "icc-videostream-00";
 	private final static int MAX_SEGMENTS = 10;
+	private final int SEGMENT_LENGTH = 8000; //milliseconds
 	private CanvasFrame canvas = new CanvasFrame("Instant Cloud Camera");
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
@@ -40,7 +46,10 @@ public class InstantCloudCameraRunner implements Runnable {
 		}
 		try {
 			Frame img;
+			IplImage myImage;
+//			Mat mat = Mat.cvarrToMat(myImage.asCvMat());
 			long start = 0;
+			int j = 0;
 			while (true) {
 				if(recorder == null){
 					outputFileName = PREFIX + (++segmentNum) + ".flv";
@@ -57,11 +66,18 @@ public class InstantCloudCameraRunner implements Runnable {
 				}
 				if ((img = grabber.grab()) != null) {
 					// show image on window
-					canvas.showImage(img);
+					OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
+					myImage = (IplImage) img.opaque;
+					System.out.println("Width: " + img.imageWidth + ", Height: " + img.imageHeight);
+					System.out.println("MyImage: " + myImage.getClass());
+					for(int i = j; i < img.imageWidth * img.imageHeight * 3; i += img.imageWidth*3){
+						myImage.imageData().put(i, (byte) 0);
+					}
+					canvas.showImage(converter.convert(myImage));
 					recorder.record(img);
-				}
-				//check length of video
-				if(System.currentTimeMillis() - start >= 8000){
+				} j+=10;
+				//check time of video
+				if(System.currentTimeMillis() - start >= SEGMENT_LENGTH){
 					try{
 						recorder.stop();
 					} catch(Exception e){
