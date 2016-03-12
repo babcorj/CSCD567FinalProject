@@ -15,6 +15,7 @@
 
 import java.io.File;
 import java.io.IOException;
+import java.util.NoSuchElementException;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -112,6 +113,7 @@ public class S3Uploader extends Thread {
             		e.printStackTrace();
             		return;
             	}
+            	key = null;
             }
             System.out.println("S3 Uploader successfully closed");
 

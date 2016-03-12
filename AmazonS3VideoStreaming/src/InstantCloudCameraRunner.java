@@ -19,7 +19,8 @@ public class InstantCloudCameraRunner implements Runnable {
 	private final String PREFIX = "myvideo";
 	private final static String BUCKETNAME = "icc-videostream-00";
 	private final static int MAX_SEGMENTS = 10;
-	private final int SEGMENT_LENGTH = 8000; //milliseconds
+	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
+	private final double FPS = 30;
 	private CanvasFrame canvas = new CanvasFrame("Instant Cloud Camera");
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
@@ -33,11 +34,11 @@ public class InstantCloudCameraRunner implements Runnable {
 		int segmentNum = 0;
 		String outputFileName = PREFIX + segmentNum + ".flv";
 		FrameGrabber grabber = null;
-		FFmpegFrameRecorder recorder = null;
+		ICCRecorder myRecorder = null;
 //		https://stackoverflow.com/questions/28494648/video-compression-using-javacv
 		try{
 			grabber = FrameGrabber.createDefault(0); // 1 for next camera
-//			grabber.setFrameRate(720);
+			grabber.setFrameRate(FPS);
 			grabber.start();
 		}
 		catch(Exception e){
@@ -46,54 +47,38 @@ public class InstantCloudCameraRunner implements Runnable {
 		}
 		try {
 			Frame img;
-			IplImage myImage;
-//			Mat mat = Mat.cvarrToMat(myImage.asCvMat());
-			long start = 0;
-			int j = 0;
+			Thread writeThread;
+			int segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
+			IplImage[] myImage = new IplImage[segmentLength];
+			OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
+//			System.out.println("Frame Rate: " + grabber.getFrameRate());
+
+			int frameCount = 0;
 			while (true) {
-				if(recorder == null){
-					outputFileName = PREFIX + (++segmentNum) + ".flv";
-					recorder = new FFmpegFrameRecorder(outputFileName,
-							grabber.getImageWidth(), grabber.getImageHeight(),
-							grabber.getAudioChannels());
-					recorder.start();
-					recorder.setFrameRate(grabber.getFrameRate());
-					recorder.setSampleRate(grabber.getSampleRate());
-//			        recorder.setFrameRate(10);
-//			        recorder.setVideoBitrate(10 * 1024 * 1024);
-					recorder.setFormat("flv");
-					start = System.currentTimeMillis();
-				}
-				if ((img = grabber.grab()) != null) {
+//				if ((img = grabber.grab()) != null) {
+				if ((myImage[frameCount] = (IplImage) grabber.grab().opaque) != null) {
 					// show image on window
-					OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
-					myImage = (IplImage) img.opaque;
-//					System.out.println("Width: " + img.imageWidth + ", Height: " + img.imageHeight);
-//					System.out.println("MyImage: " + myImage.getClass());
-					for(int i = j; i < img.imageWidth * img.imageHeight * 3; i += img.imageWidth*3){
-						myImage.imageData().put(i, (byte) 0);
+//					myImage[frameCount] = (IplImage) img.opaque;
+					canvas.showImage(converter.convert(myImage[frameCount]));
+					System.out.println("FrameCount: "+frameCount+
+							"\nFrameLength: "+segmentLength);
+					frameCount++;
+					//check end of video
+					if(frameCount >= myImage.length){
+						outputFileName = PREFIX + (++segmentNum) + ".flv";
+						myRecorder = new ICCRecorder(myImage, outputFileName,
+								que, FPS);
+						writeThread = new Thread(myRecorder);
+						writeThread.start();
+						segmentNum = segmentNum % MAX_SEGMENTS;
+						frameCount = 0;
 					}
-					canvas.showImage(converter.convert(myImage));
-					recorder.record(img);
-				} j+=10;
-				//check time of video
-				if(System.currentTimeMillis() - start >= SEGMENT_LENGTH){
-					try{
-						recorder.stop();
-					} catch(Exception e){
-						System.err.println(e + ": Unable to save video!");
-						e.printStackTrace();
-					}
-					recorder = null;
-					segmentNum = segmentNum % MAX_SEGMENTS;
-					que.enqueue(outputFileName);
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		try{
-			recorder.stop();
 			s3.end();
 			s3.interrupt();
 		} catch(Exception e){

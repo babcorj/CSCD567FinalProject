@@ -50,24 +50,24 @@ public class ICCEditor {
 		
 	}
 	
-	public void recordVideo(IplImage[] img, String outputFileName){
-		FFmpegFrameRecorder recorder = null;
+	public void recordVideo(String outputFileName) throws ArrayIndexOutOfBoundsException {
 		OpenCVFrameConverter.ToIplImage converter = new OpenCVFrameConverter.ToIplImage();
-		recorder = new FFmpegFrameRecorder(outputFileName,
-				grabber.getImageWidth(), grabber.getImageHeight(),
-				grabber.getAudioChannels());
-		recorder.start();
-		recorder.setFrameRate(grabber.getFrameRate());
-		recorder.setSampleRate(grabber.getSampleRate());
-//        recorder.setFrameRate(10);
-//        recorder.setVideoBitrate(10 * 1024 * 1024);
+		FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(outputFileName,
+				video[0].width(), video[0].height());
 		recorder.setFormat("flv");
-		for(int i = 0; i < img.length; i++){
-			recorder.record(converter.convert(img[i]));
+		try{
+			recorder.start();
+			for(int i = 0; i < video.length; i++){
+				recorder.record(converter.convert(video[i]));
+			}
+			recorder.stop();
+		} catch(Exception e){
+			e.printStackTrace();
 		}
+		System.out.println("Finished Recording!");
 	}
-	
-	public enum Color{
+
+	private enum Color{
 		RED, BLUE, GREEN;
 	}
 }
