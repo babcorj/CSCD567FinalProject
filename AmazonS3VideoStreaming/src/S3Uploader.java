@@ -1,3 +1,5 @@
+package src;
+
 /*
  * Copyright 2010-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *

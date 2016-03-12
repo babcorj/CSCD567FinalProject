@@ -1,3 +1,5 @@
+package src;
+
 import java.io.File;
 import org.bytedeco.javacv.CanvasFrame;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
@@ -71,7 +73,7 @@ public class VideoPlayer implements Runnable {
 	
 	public static void main(String[] args) {
 		
-		final String OUTPUT = "C:\\Users\\Dan\\OneDrive\\Computer Science\\CSCD 567\\CSCD567FinalProject\\AmazonS3VideoStreaming";
+		final String OUTPUT = ".\\";
 		final String BUCKET = "icc-videostream-00";
 		SharedQueue<String> queue = new SharedQueue<>(100);
 		queue.enqueue("myvideo.flv");
