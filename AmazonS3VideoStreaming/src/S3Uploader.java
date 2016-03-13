@@ -51,126 +51,13 @@ public class S3Uploader extends Thread {
 	private String key;
 	private SharedQueue<String> que;
 	private boolean isDone = false;
-<<<<<<< HEAD
-
-	public S3Uploader(String bucket, SharedQueue<String> theque) {
-=======
 	private AmazonS3 s3;
 	
 	public S3Uploader(String bucket, SharedQueue<String> theque){
->>>>>>> origin/master
 		bucketName = bucket;
 		que = theque;
 	}
 
-	@Override
-<<<<<<< HEAD
-	public void run() {
-
-		/*
-		 * The ProfileCredentialsProvider will return your [default] credential
-		 * profile by reading from the credentials file located at
-		 * (/Users/ryanj/.aws/credentials).
-		 */
-		AWSCredentials credentials = null;
-		try {
-			credentials = new ProfileCredentialsProvider("default").getCredentials();
-		} catch (Exception e) {
-			throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
-					+ "Please make sure that your credentials file is at the correct "
-					+ "location (/Users/ryanj/.aws/credentials), and is in valid format.", e);
-		}
-
-		AmazonS3 s3 = new AmazonS3Client(credentials);
-		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-		s3.setRegion(usWest2);
-
-		System.out.println("===========================================");
-		System.out.println("Getting Started with Amazon S3");
-		System.out.println("===========================================\n");
-
-		try {
-			/*
-			 * List the buckets in your account
-			 */
-			System.out.println("Listing buckets");
-			for (Bucket bucket : s3.listBuckets()) {
-				System.out.println(" - " + bucket.getName());
-			}
-			System.out.println();
-
-			/*
-			 * Upload an object to your bucket - You can easily upload a file to
-			 * S3, or upload directly an InputStream if you know the length of
-			 * the data in the stream. You can also specify your own metadata
-			 * when uploading to S3, which allows you set a variety of options
-			 * like content-type and content-encoding, plus additional metadata
-			 * specific to your applications.
-			 */
-
-			System.out.println("Uploading videostream to S3...\n");
-			while (!isDone || !que.isEmpty()) {
-				key = que.dequeue();
-				try {
-					s3.putObject(new PutObjectRequest(bucketName, key, loadVideoFile(key)));
-					System.out.println("Downloading an object...");
-					S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-					System.out.println("Content-Type: " + object.getObjectMetadata().getContentType());
-				} catch (IOException e) {
-					e.printStackTrace();
-					return;
-				}
-			}
-			System.out.println("S3 Uploader successfully closed");
-
-			/*
-			 * Delete an object - Unless versioning has been turned on for your
-			 * bucket, there is no way to undelete an object, so use caution
-			 * when deleting objects.
-			 */
-			// System.out.println("Deleting an object\n");
-			// s3.deleteObject(bucketName, key);
-
-		} catch (AmazonServiceException ase) {
-			System.out.println("Caught an AmazonServiceException, which means your request made it "
-					+ "to Amazon S3, but was rejected with an error response for some reason.");
-			System.out.println("Error Message:    " + ase.getMessage());
-			System.out.println("HTTP Status Code: " + ase.getStatusCode());
-			System.out.println("AWS Error Code:   " + ase.getErrorCode());
-			System.out.println("Error Type:       " + ase.getErrorType());
-			System.out.println("Request ID:       " + ase.getRequestId());
-		} catch (AmazonClientException ace) {
-			System.out.println("Caught an AmazonClientException, which means the client encountered "
-					+ "a serious internal problem while trying to communicate with S3, "
-					+ "such as not being able to access the network.");
-			System.out.println("Error Message: " + ace.getMessage());
-		}
-	}
-
-	/**
-	 * Loads the video file specified in fin
-	 *
-	 * @return The video file specified in fin.
-	 *
-	 * @throws IOException
-	 */
-	private static File loadVideoFile(String fin) throws IOException {
-		File file = new File(fin);
-		if (!file.exists()) {
-			throw new IOException("Cannot find file '" + fin + "'");
-		}
-		return file;
-	}
-
-	public void setKey(String fout) {
-		key = fout;
-	}
-
-	public void end() {
-		System.out.println("Attempting to close S3 Uploader...");
-		isDone = true;
-	}
-=======
     public void run() {
 
         /*
@@ -286,5 +173,4 @@ public class S3Uploader extends Thread {
     		e.printStackTrace();
     	}
     }
->>>>>>> origin/master
 }
