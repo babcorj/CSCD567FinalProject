@@ -15,7 +15,10 @@
  */
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -27,7 +30,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 
 /**
@@ -43,16 +45,23 @@ import com.amazonaws.services.s3.model.S3Object;
  *
  * http://aws.amazon.com/security-credentials
  */
-public class S3Uploader extends Thread {
+public class S3Downloader extends Thread {
 
 	private String bucketName;
 	private String key;
-	private SharedQueue<String> que;
 	private boolean isDone = false;
+	private String output;
+	private VideoStream stream;
+	private StreamIndexParser parser;
+	private AmazonS3 s3;
+	private String STREAMINDEX = "StreamIndex.txt";
+	private String prefix;
 
-	public S3Uploader(String bucket, SharedQueue<String> theque) {
+	public S3Downloader(String bucket, String prefix, String output, VideoStream stream) {
 		bucketName = bucket;
-		que = theque;
+		this.output = output;
+		this.stream = stream;
+		this.prefix = prefix;
 	}
 
 	@Override
@@ -72,7 +81,7 @@ public class S3Uploader extends Thread {
 					+ "location (/Users/ryanj/.aws/credentials), and is in valid format.", e);
 		}
 
-		AmazonS3 s3 = new AmazonS3Client(credentials);
+		s3 = new AmazonS3Client(credentials);
 		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
 		s3.setRegion(usWest2);
 
@@ -80,6 +89,13 @@ public class S3Uploader extends Thread {
 		System.out.println("Getting Started with Amazon S3");
 		System.out.println("===========================================\n");
 
+		try {
+			parser = new StreamIndexParser(prefix, getFile(STREAMINDEX));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		try {
 			/*
 			 * List the buckets in your account
@@ -99,20 +115,25 @@ public class S3Uploader extends Thread {
 			 * specific to your applications.
 			 */
 
-			System.out.println("Uploading videostream to S3...\n");
-			while (!isDone || !que.isEmpty()) {
-				key = que.dequeue();
-				try {
-					s3.putObject(new PutObjectRequest(bucketName, key, loadVideoFile(key)));
-					System.out.println("Downloading an object...");
-					S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-					System.out.println("Content-Type: " + object.getObjectMetadata().getContentType());
-				} catch (IOException e) {
-					e.printStackTrace();
-					return;
-				}
+			System.out.println("Downloading videostream from S3...\n");
+			while (!isDone) {
+				File video = null;
+				key = parser.parse(getFile(STREAMINDEX));
+				System.out.println("Downloading an object...");
+					
+				video = getFile(key);
+	
+				stream.add(video);
 			}
-			System.out.println("S3 Uploader successfully closed");
+				
+			try {
+				sleep(500);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			System.out.println("S3 Downloader successfully closed");
 
 			/*
 			 * Delete an object - Unless versioning has been turned on for your
@@ -158,7 +179,36 @@ public class S3Uploader extends Thread {
 	}
 
 	public void end() {
-		System.out.println("Attempting to close S3 Uploader...");
+		System.out.println("Attempting to close S3 Downloader...");
 		isDone = true;
 	}
+	
+	private File getFile(String key) {
+		
+		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
+		System.out.println("Content-Type: " + object.getObjectMetadata().getContentType());
+		InputStream instream = object.getObjectContent();
+		File file = null;
+
+		byte[] buffer;
+		try {
+			buffer = new byte[instream.available()];
+
+			file = new File(String.format(output + "/%s.tmp", key));
+			OutputStream outstream = new FileOutputStream(file);
+			int read = 0;
+			while ((read = instream.read(buffer)) != -1) {
+				outstream.write(buffer, 0, read);
+			}
+
+			outstream.close();
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		 return file;
+	}
+	
+	// public SharedQueue<String> get
 }

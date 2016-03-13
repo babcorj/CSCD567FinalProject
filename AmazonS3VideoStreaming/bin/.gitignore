@@ -1,0 +1,9 @@
+/InstantCloudCameraRunner.class
+/S3Downloader.class
+/S3Uploader.class
+/SharedQueue.class
+/VideoPlayer.class
+/VideoReader.class
+/VideoStream.class
+/StreamIndexParser.class
+/S3Downloader$FragmentGetter.class
