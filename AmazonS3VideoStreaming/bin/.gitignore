@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /InstantCloudCameraRunner.class
 /S3Downloader.class
 /S3Uploader.class
@@ -7,3 +8,10 @@
 /VideoStream.class
 /StreamIndexParser.class
 /S3Downloader$FragmentGetter.class
+=======
+/ICCEditor$Color.class
+/ICCEditor.class
+/ICCRecorder.class
+/ICCRunner.class
+/IndexWriter.class
+>>>>>>> origin/master
