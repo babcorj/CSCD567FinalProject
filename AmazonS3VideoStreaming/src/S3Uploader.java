@@ -26,6 +26,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
@@ -49,7 +50,8 @@ public class S3Uploader extends Thread {
 	private String key;
 	private SharedQueue<String> que;
 	private boolean isDone = false;
-
+	private AmazonS3 s3;
+	
 	public S3Uploader(String bucket, SharedQueue<String> theque){
 		bucketName = bucket;
 		que = theque;
@@ -74,7 +76,7 @@ public class S3Uploader extends Thread {
                     e);
         }
 
-        AmazonS3 s3 = new AmazonS3Client(credentials);
+        s3 = new AmazonS3Client(credentials);
         Region usWest2 = Region.getRegion(Regions.US_WEST_2);
         s3.setRegion(usWest2);
 
@@ -162,5 +164,13 @@ public class S3Uploader extends Thread {
     public void end(){
     	System.out.println("Attempting to close S3 Uploader...");
     	isDone = true;
+    }
+    
+    public void delete(String file){
+    	try{
+    	s3.deleteObject(new DeleteObjectRequest(bucketName, file));
+    	} catch(Exception e){
+    		e.printStackTrace();
+    	}
     }
 }
