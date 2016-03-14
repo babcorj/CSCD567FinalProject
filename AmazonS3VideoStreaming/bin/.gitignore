@@ -1,6 +1,16 @@
+/ICCEditor$Color.class
+/ICCEditor.class
+/ICCRunner.class
+/IndexWriter.class
 /InstantCloudCameraRunner.class
 /S3Downloader.class
+/S3Uploader.class
+/SharedQueue.class
 /StreamIndexParser.class
 /VideoPlayer.class
 /VideoReader.class
 /VideoStream.class
+/ICCEditorRunnerShutdownHook.class
+/ICCRunnerShutdownHook.class
+/ICCCleaner.class
+/VideoPlayerShutDownHook.class

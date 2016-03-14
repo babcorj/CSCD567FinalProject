@@ -16,6 +16,7 @@
 
 import java.io.File;
 import java.io.IOException;
+//import java.util.NoSuchElementException;
 import java.util.NoSuchElementException;
 
 import com.amazonaws.AmazonClientException;
@@ -105,7 +106,12 @@ public class S3Uploader extends Thread {
             
             System.out.println("Uploading videostream to S3...\n");
             while(!isDone || !que.isEmpty()){
-            	key = que.dequeue();
+            	try{
+            		key = que.dequeue();
+            	} catch(NoSuchElementException e){
+            		end();
+            		continue;
+            	}
             	try{
             		s3.putObject(new PutObjectRequest(bucketName, key, loadVideoFile(key)));
                     System.out.println("Downloading an object...");
@@ -162,15 +168,20 @@ public class S3Uploader extends Thread {
     }
     
     public void end(){
+    	if(isDone) return;
     	System.out.println("Attempting to close S3 Uploader...");
+    	while(!que.isEmpty()){
+    		que.dequeue();
+    	}
     	isDone = true;
     }
-    
+
     public void delete(String file){
     	try{
     	s3.deleteObject(new DeleteObjectRequest(bucketName, file));
     	} catch(Exception e){
     		e.printStackTrace();
     	}
+		System.out.println("Successfully deleted '"+file+"' from S3");
     }
 }
