@@ -42,7 +42,7 @@ public class VideoReader implements Runnable {
 
 	public static void main(String[] args) {
 		VideoReader vr = new VideoReader(new File(
-				"C:\\Users\\Dan\\OneDrive\\Computer Science\\CSCD 567\\CSCD567FinalProject\\AmazonS3VideoStreaming\\video.flv"));
+				".\\video0.flv"));
 		Thread th = new Thread(vr);
 		th.start();
 	}
