@@ -160,7 +160,7 @@ public class ICCEditor implements Cloneable {
 //	0.21 R + 0.72 G + 0.07 B
 
 	public enum Color{
-		RED, BLUE, GREEN, YELLOW, VIOLET, AQUA, ORANGE, BLACK, WHITE, GREY;
+		RED, BLUE, GREEN, YELLOW, VIOLET, AQUA, ORANGE, BLACK, WHITE, GREY, ALL;
 	}
 	
 	public static Color[] allColors(){

@@ -29,6 +29,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 
@@ -118,11 +119,15 @@ public class S3Downloader extends Thread {
 			System.out.println("Downloading videostream from S3...\n");
 			while (!isDone) {
 				File video = null;
-				key = parser.parse(getFile(STREAMINDEX));
+				try{
+					key = parser.parse(getFile(STREAMINDEX));
+				} catch(IndexOutOfBoundsException e){
+					continue;
+				}
 				System.out.println("Downloading an object...");
-					
+
 				video = getFile(key);
-	
+
 				stream.add(video);
 			}
 				
@@ -132,7 +137,7 @@ public class S3Downloader extends Thread {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
+	    	deleteIndexFile();
 			System.out.println("S3 Downloader successfully closed");
 
 			/*
@@ -179,8 +184,12 @@ public class S3Downloader extends Thread {
 	}
 
 	public void end() {
-		System.out.println("Attempting to close S3 Downloader...");
-		isDone = true;
+    	if(isDone) return;
+    	System.out.println("Attempting to close S3 Downloader...");
+    	while(!stream.isEmpty()){
+    		stream.getFrame();
+    	}
+    	isDone = true;
 	}
 	
 	private File getFile(String key) {
@@ -209,6 +218,14 @@ public class S3Downloader extends Thread {
 		}
 		 return file;
 	}
-	
-	// public SharedQueue<String> get
+
+    private void deleteIndexFile(){
+    	try{
+    		File toDelete = new File(STREAMINDEX + ".tmp");
+    		toDelete.delete();
+    	} catch(Exception e){
+    		e.printStackTrace();
+    	}
+//		System.out.println("Successfully deleted '"+file+"' locally");
+    }
 }

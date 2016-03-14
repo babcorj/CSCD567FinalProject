@@ -14,7 +14,7 @@ public class IndexWriter implements Runnable {
 		maxSegments = max;
 		indexfile = name;
 	}
-	
+
 	public void run(){
 		FileWriter fw = null;
 		try{
