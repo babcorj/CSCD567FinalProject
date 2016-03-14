@@ -1,5 +1,6 @@
-/ICCEditor$Color.class
-/ICCEditor.class
-/ICCRecorder.class
-/ICCRunner.class
-/IndexWriter.class
+/InstantCloudCameraRunner.class
+/S3Downloader.class
+/StreamIndexParser.class
+/VideoPlayer.class
+/VideoReader.class
+/VideoStream.class
