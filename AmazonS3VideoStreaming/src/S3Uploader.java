@@ -178,7 +178,7 @@ public class S3Uploader extends Thread {
 
     public void delete(String file){
     	try{
-    	s3.deleteObject(new DeleteObjectRequest(bucketName, file));
+    		s3.deleteObject(new DeleteObjectRequest(bucketName, file));
     	} catch(Exception e){
     		e.printStackTrace();
     	}

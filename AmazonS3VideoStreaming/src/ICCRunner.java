@@ -18,8 +18,8 @@ public class ICCRunner extends Thread {
 	
 	//VISUAL SETTINGS
 	private final boolean RAINBOW = false;
-	private final ICCEditor.Color myColor = ICCEditor.Color.BLUE;
-//	private final ICCEditor.Color myColor = null;
+//	private final ICCEditor.Color myColor = ICCEditor.Color.BLUE;
+	private final ICCEditor.Color myColor = null;
 	
 	public ICCRunner() {
 		canvas.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
@@ -62,7 +62,7 @@ public class ICCRunner extends Thread {
 			String toDelete = "";
 			Frame img;
 			Thread ithread;
-			ICCCleaner cleaner = new ICCCleaner(s3);
+			ICCCleaner cleaner = null;
 
 			recorder.start();
 
@@ -100,6 +100,10 @@ public class ICCRunner extends Thread {
 							ithread.start();
 						}
 						else{
+							iwriter = new IndexWriter(que, 0,
+									segmentNum, MAX_SEGMENTS, INDEXFILE);
+							ithread = new Thread(iwriter);
+							ithread.start();
 							if(segmentNum == PRELOADSEGMENTS){
 								initiated = true;
 							}
@@ -113,7 +117,7 @@ public class ICCRunner extends Thread {
 								del += 100;
 							}
 							toDelete = PREFIX + del + ".flv";
-							cleaner.set(toDelete);
+							cleaner = new ICCCleaner(s3, toDelete);
 							cleaner.start();
 						}
 						outputFileName = PREFIX + (++segmentNum) + ".flv";
