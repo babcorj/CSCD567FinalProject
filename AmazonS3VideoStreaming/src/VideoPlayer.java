@@ -55,10 +55,12 @@ public class VideoPlayer extends Thread {
 								Thread.sleep((long)(grabber.getFrameRate() *
 										image.imageChannels));
 							} catch(NullPointerException npe){
-								npe.printStackTrace();
+								//npe.printStackTrace();
+								Thread.sleep((long)(grabber.getFrameRate() *
+										3));
 							}
 						}
-						grabber.stop();
+						//grabber.stop();
 						video.delete();
 						
 					} catch (Exception e) {
