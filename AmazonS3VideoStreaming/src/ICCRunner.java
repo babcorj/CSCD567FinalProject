@@ -1,6 +1,9 @@
 
-import org.bytedeco.javacpp.opencv_core.IplImage;
+import org.bytedeco.javacpp.*;
+import org.opencv.core.Mat;
 import org.bytedeco.javacv.*;
+import org.opencv.*;
+import org.opencv.videoio.VideoCapture;
 
 public class ICCRunner extends Thread {
 	private final String PREFIX = "myvideo";
@@ -31,17 +34,22 @@ public class ICCRunner extends Thread {
 				height = 0,
 				oldestSegment = 0;
 		String outputFileName = PREFIX + segmentNum + ".flv";
-		FrameGrabber grabber = null;
+//		FrameGrabber grabber = null;
+//		OpenCVFrameGrabber grabber = null;
 		FFmpegFrameRecorder recorder = null;
 		IndexWriter iwriter = null;
 
+		System.out.println(System.getProperty("java.library.path"));
 		try{
-			grabber = FrameGrabber.createDefault(0); // 1 for next camera
-			grabber.setFrameRate(FPS);
-			grabber.start();
+			VideoCapture video = new VideoCapture();
+			video.open(0);
+//			grabber = new OpenCVFrameGrabber(0);
+//			grabber = FrameGrabber.createDefault(0); // 1 for next camera
+//			grabber.setFrameRate(FPS);
+//			grabber.start();
 			
-			height = grabber.getImageHeight();
-			width = grabber.getImageWidth();
+//			height = grabber.getImageHeight();
+//			width = grabber.getImageWidth();
 			
 			recorder = new FFmpegFrameRecorder(outputFileName,
 					width, height);
@@ -67,20 +75,20 @@ public class ICCRunner extends Thread {
 			recorder.start();
 
 			while (!isDone) {
-				if ((img = grabber.grab()) != null) {
+//				if ((img = grabber.grab()) != null) {
 
 					//edit image
 					if(RAINBOW){
 						img = setColor(ICCEditor.Color.ALL, img, colnum++);
 						colnum = colnum % ICCEditor.allColors().length;
 					}
-					else if(myColor != null){
-						img = setColor(myColor, img, colnum++);
-					}
-					
-					//show & record image
-					canvas.showImage(img);
-					recorder.record(img);
+//					else if(myColor != null){
+//						img = setColor(myColor, img, colnum++);
+//					}
+//					
+//					//show & record image
+//					canvas.showImage(img);
+//					recorder.record(img);
 					frameCount++;
 
 					//check end of video
@@ -130,22 +138,22 @@ public class ICCRunner extends Thread {
 						recorder.start();
 					}
 				}
-			}
-			grabber.stop();
-			recorder.stop();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		System.out.println("Runner successfully closed");
+//			}
+//			grabber.stop();
+//			recorder.stop();
+//		System.out.println("Runner successfully closed");
 	}
 	
 	private Frame setColor(ICCEditor.Color color, Frame img, int colnum){
 		ICCEditor editor = new ICCEditor();
 		OpenCVFrameConverter.ToIplImage converter =
 				new OpenCVFrameConverter.ToIplImage();
-		IplImage ipl;
-		ipl = converter.convertToIplImage(img);
-		editor.set(ipl);
+		Mat ipl;
+//		ipl = converter.convertToIplImage(img);
+//		editor.set(ipl);
 		switch(color){
 		case ALL :
 			ICCEditor.Color[] colors = ICCEditor.allColors();
@@ -155,7 +163,7 @@ public class ICCRunner extends Thread {
 			editor.setPixelValue(color);
 			break;
 		}
-		img = converter.convert(ipl);
+//		img = converter.convert(ipl);
 		return img;
 	}
 	
