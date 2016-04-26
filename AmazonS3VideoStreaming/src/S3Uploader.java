@@ -113,13 +113,14 @@ public class S3Uploader extends Thread {
             		continue;
             	}
             	try{
+            		System.out.println("Here");
             		s3.putObject(new PutObjectRequest(bucketName, key, loadVideoFile(key)));
-                    System.out.println("Downloading an object...");
+            		System.out.println("Not Here");
+            		System.out.println("Downloading an object...");
                     S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
                     System.out.println("Content-Type: "  + object.getObjectMetadata().getContentType());
             	} catch(IOException e) {
             		e.printStackTrace();
-            		return;
             	}
             	key = null;
             }

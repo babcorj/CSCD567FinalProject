@@ -1,7 +1,16 @@
+/*
+ * Amazon errors
+ * 
+ * Error Message: Failed to sanitize XML document destined for handler class 
+ * com.amazonaws.services.s3.model.transform.XmlResponsesSaxParser$ListAllMyBucketsHandler
+ * 
+ * Error Message: Unable to find file to upload
+ */
 
+
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 
-import org.bytedeco.javacv.CanvasFrame;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 //import org.opencv.*;
@@ -20,21 +29,18 @@ public class ICCRunner extends Thread {
 	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
 	private final int PRELOADSEGMENTS = 5; // diff of min v. max in index file
 	private final int DELETESEGMENTS = 10; // delete x frames behind
-	private final double FPS = 10;
-	private CanvasFrame canvas = new CanvasFrame("Instant Cloud Camera");
+	private final double FPS = 20;
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
 	private boolean isDone = false;
+	private Mat mat;
 	
 	//VISUAL SETTINGS
 	private final boolean HASCOLOR = true;
 	private final boolean RAINBOW = false;
 //	private final ICCEditor.Color myColor = ICCEditor.Color.BLUE;
-	private final ICCEditor.Color myColor = null;
+//	private final ICCEditor.Color myColor = null;
 	
-	public ICCRunner() {
-		canvas.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
-	}
 	@Override
 	public void run() {
 		int segmentNum = 0,
@@ -51,6 +57,7 @@ public class ICCRunner extends Thread {
 			video = new VideoCapture();
 			video.open(0);
 			video.set(Videoio.CAP_PROP_FPS, FPS);
+//			video.set(Videoio.CAP_PROP_FOURCC, fourCC.toInt());
 			
 			if(!video.isOpened()){
 				System.err.println("Failed to open video stream");
@@ -84,7 +91,7 @@ public class ICCRunner extends Thread {
 			String toDelete = "";
 			BufferedImage img = new BufferedImage(width, height, 
                     BufferedImage.TYPE_3BYTE_BGR);
-			Mat mat = new Mat();
+			mat = new Mat();
 			Thread ithread;
 			ICCCleaner cleaner = null;
 
@@ -103,14 +110,13 @@ public class ICCRunner extends Thread {
 					//show & record image
 					recorder.write(mat);
 					repaint(mat, img);
-					canvas.showImage(img);
 					frameCount++;
 
 					//check end of video
 					if(frameCount >= segmentLength){
 						recorder.release();
 
-						System.out.println("Finished writing: "+ outputFileName);
+						System.out.println("Finished writing: " + outputFileName);
 						que.enqueue(outputFileName);
 
 						//wait until segments == PRELOADSEGMENTS before
@@ -181,16 +187,23 @@ public class ICCRunner extends Thread {
 //	}
 	
 	public void repaint(Mat mat, BufferedImage img){
+		
+	}
+	
+	public Image getCurrentFrame() throws NullPointerException {
 		int w = mat.cols(),
 			h = mat.rows();
-		byte[] dat = new byte[w * h * 3];
-//        img = new BufferedImage(w, h, 
-//                    BufferedImage.TYPE_3BYTE_BGR);
+		byte[] dat = new byte[w * h * mat.channels()];
+		
+		BufferedImage img = new BufferedImage(w, h, 
+            BufferedImage.TYPE_3BYTE_BGR);
+        
         mat.get(0, 0, dat);
         img.getRaster().setDataElements(0, 0, 
                                mat.cols(), mat.rows(), dat);
+        return img;
 	}
-	
+
 	public void end(){
 		isDone = true;
 		System.out.println("Attempting to close runner...");
@@ -199,6 +212,14 @@ public class ICCRunner extends Thread {
 	public static void main(String[] args) {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		ICCRunner iccr = new ICCRunner();
+		DisplayFrame display;
+		try{
+			display = new DisplayFrame("Instant Cloud Camera", iccr);
+			display.setVisible(true);	
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 		que = new SharedQueue<>(MAX_SEGMENTS + 1);
 		s3 = new S3Uploader(BUCKETNAME, que);
 		Runtime.getRuntime().addShutdownHook(new ICCRunnerShutdownHook(s3, iccr));

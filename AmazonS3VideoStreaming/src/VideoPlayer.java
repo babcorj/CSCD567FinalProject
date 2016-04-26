@@ -1,14 +1,15 @@
+import java.awt.Image;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import org.bytedeco.javacv.CanvasFrame;
-import org.bytedeco.javacv.FFmpegFrameGrabber;
-import org.bytedeco.javacv.Frame;
-import org.bytedeco.javacv.FrameGrabber.Exception;
+import org.opencv.core.*;
+import org.opencv.videoio.*;
 
 public class VideoPlayer extends Thread {
 
 	private static S3Downloader downloader;
 	private VideoStream stream;
 	private boolean isDone = false;
+	Mat mat = new Mat();
 	
 	public VideoPlayer(String bucket, String prefix, String output) {
 
@@ -19,13 +20,13 @@ public class VideoPlayer extends Thread {
 	@Override
 	public void run() {
 
+		double FPS;
+		VideoCapture grabber = null;
 		downloader.start();
-		Frame image = null;
 		System.out.println("Starting video player thread");
-		CanvasFrame canvas = new CanvasFrame("Web Cam");
+		DisplayFrame canvas = new DisplayFrame("Web Cam", this);
 		canvas.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
 		File video = null;
-		FFmpegFrameGrabber grabber = null;
 		
 		while (!isDone) {
 
@@ -37,27 +38,23 @@ public class VideoPlayer extends Thread {
 				while (!stream.isEmpty()) {
 
 					video = stream.getFrame();
-					grabber = new FFmpegFrameGrabber(video.getAbsolutePath());
+					grabber = new VideoCapture(video.getAbsolutePath());
+					FPS = grabber.get(Videoio.CAP_PROP_FPS);
 					
 					try {
-						grabber.start();
-						image = grabber.grabFrame();
-//						System.out.println("Player got frame " + image.toString());
+						grabber.read(mat);
 
-						while (image != null) {
-
-//							System.out.println("Player got frame " + image.getClass().getName());
-							canvas.showImage(image);
+						while (mat != null) {
 							secondsPlayed = ((double)System.currentTimeMillis() - startTime)/1000;
 							System.out.printf("Time played: %.2f\n", secondsPlayed);
-							image = grabber.grabFrame();
+							grabber.read(mat);
 							try{
-								Thread.sleep((long)(grabber.getFrameRate() *
-										image.imageChannels));
+								Thread.sleep((long) FPS *
+										mat.channels());
 							} catch(NullPointerException npe){
 								//npe.printStackTrace();
-								Thread.sleep((long)(grabber.getFrameRate() *
-										3));
+								Thread.sleep((long) FPS *
+										mat.channels());
 							}
 						}
 						//grabber.stop();
@@ -77,13 +74,13 @@ public class VideoPlayer extends Thread {
 						continue;
 					}
 				}
-			} catch (InterruptedException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		try{
-			grabber.stop();
+			grabber.release();
 			video.delete();
 		} catch (Exception e){
 			e.printStackTrace();
@@ -91,6 +88,20 @@ public class VideoPlayer extends Thread {
 		System.out.println("VideoPlayer successfully closed");
 	}
 
+	public Image getCurrentFrame() throws NullPointerException {
+		int w = mat.cols(),
+			h = mat.rows();
+		byte[] dat = new byte[w * h * mat.channels()];
+		
+		BufferedImage img = new BufferedImage(w, h, 
+            BufferedImage.TYPE_3BYTE_BGR);
+        
+        mat.get(0, 0, dat);
+        img.getRaster().setDataElements(0, 0, 
+                               mat.cols(), mat.rows(), dat);
+        return img;
+	}
+	
 	public void end(){
 		System.out.println("Attempting to close VideoPlayer...");
 		isDone = true;
