@@ -1,159 +1,154 @@
-/*
- * Amazon errors
+/* Look at:
+ * http://stackoverflow.com/questions/6546193/how-to-catch-an-exception-from-a-thread
  * 
- * Error Message: Failed to sanitize XML document destined for handler class 
- * com.amazonaws.services.s3.model.transform.XmlResponsesSaxParser$ListAllMyBucketsHandler
- * 
- * Error Message: Unable to find file to upload
+ * For s3 shutdown error checking from main thread
  */
-
-
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
-//import org.opencv.*;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 import org.opencv.core.Size;
 
 public class ICCRunner extends Thread {
+	private final static int MAX_SEGMENTS = 100; //in reference to naming
+	private final static String BUCKETNAME = "icc-videostream-00";
+	private final static String VIDEO_FOLDER = "./videos/";
+
+	private final int PRELOADSEGMENTS = 5; // diff of min v. max in index file
+	private final int DELETESEGMENTS = 10; // delete x frames behind
+	private final double FPS = 20;
+	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
 	private final FourCC fourCC = new FourCC("MJPG");
 	private final String PREFIX = "myvideo";
 	private final String FILE_EXT = ".avi";
 	private final String INDEXFILE = "StreamIndex.txt";
-	private final static String BUCKETNAME = "icc-videostream-00";
-	private final static int MAX_SEGMENTS = 100;
-	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
-	private final int PRELOADSEGMENTS = 5; // diff of min v. max in index file
-	private final int DELETESEGMENTS = 10; // delete x frames behind
-	private final double FPS = 20;
+
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
+	
 	private boolean isDone = false;
-	private Mat mat;
+	private Mat mat = new Mat();
+	private Mat grayMat = null;
 	
 	//VISUAL SETTINGS
 	private final boolean HASCOLOR = true;
-	private final boolean RAINBOW = false;
-//	private final ICCEditor.Color myColor = ICCEditor.Color.BLUE;
-//	private final ICCEditor.Color myColor = null;
-	
+
 	@Override
 	public void run() {
-		int segmentNum = 0,
-			width = 0,
+		int width = 0,
 			height = 0,
-			oldestSegment = 0;
-		String outputFileName = PREFIX + segmentNum + FILE_EXT;
+			compressionRatio = 10;
+		String outputFileName = PREFIX + 0 + FILE_EXT;
 		VideoCapture video = null;
 		Size frameSize = null;
 		VideoWriter recorder = null;
 		IndexWriter iwriter = null;
 
 		try{
-			video = new VideoCapture();
-			video.open(0);
+			//open video stream
+			video = new VideoCapture(0);
 			video.set(Videoio.CAP_PROP_FPS, FPS);
-//			video.set(Videoio.CAP_PROP_FOURCC, fourCC.toInt());
-			
-			if(!video.isOpened()){
-				System.err.println("Failed to open video stream");
+			width = (int) video.get(Videoio.CV_CAP_PROP_FRAME_WIDTH)/compressionRatio;
+			height = (int) video.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT)/compressionRatio;
+			video.set(Videoio.CV_CAP_PROP_FRAME_WIDTH, width);
+			video.set(Videoio.CV_CAP_PROP_FRAME_HEIGHT, height);
+
+			if(!HASCOLOR) {
+//				video.set(Videoio.CAP_OPENNI_GRAY_IMAGE, 1);
+//				video.set(Videoio.CAP_MODE_GRAY, 1);
+//				video.set(Videoio.CAP_PROP_CONVERT_RGB, 1);
+//				video.set(Videoio.CAP_PROP_MODE, 2);
 			}
 			
-			System.out.println("FPS: " + video.get(Videoio.CAP_PROP_FPS));
-			System.out.println("Width: " + video.get(Videoio.CAP_PROP_FRAME_WIDTH));
-			height = (int) video.get(Videoio.CAP_PROP_FRAME_HEIGHT);
-			width = (int) video.get(Videoio.CAP_PROP_FRAME_WIDTH);
-//			int fourCC = (int) video.get(Videoio.CAP_PROP_FOURCC);
+			if(!video.isOpened()){
+				throw new Exception("Failed to open video stream");
+			}
+			
+			//define size based on video stream
+//			height = (int) video.get(Videoio.CAP_PROP_FRAME_HEIGHT);
+//			width = (int) video.get(Videoio.CAP_PROP_FRAME_WIDTH);
 			frameSize = new Size(width,height);
-			recorder = new VideoWriter(outputFileName,
-					fourCC.toInt(), video.get(Videoio.CAP_PROP_FPS), frameSize, HASCOLOR);
-//			recorder.open(outputFileName,
-//					fourCC.toInt(), video.get(Videoio.CAP_PROP_FPS), frameSize, HASCOLOR);
+			
+			//open video recorder
+			recorder = new VideoWriter(VIDEO_FOLDER + outputFileName,
+					fourCC.toInt(), FPS, frameSize, HASCOLOR);
+
 			if(!recorder.isOpened()){
-				System.err.println("Failed to open recorder");
+				throw new Exception("Failed to open recorder");
 			}
 		}
 		catch(Exception e){
-			System.err.println(e + ": Unable to record video...");
 			e.printStackTrace();
+			s3.end();
+			end();
 		}
 		try {
-			int colorCounter = 0;
-			int frameCount = 0;
-			int del = 0;
-			int segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
-			boolean initiated = false;
-			boolean startDeleting = false;
+			int frameCount = 0,
+				oldestSegment = 0,
+				currentSegment = 0,
+				deleteSegment = 0,
+				segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
+			boolean initiated = false,
+					startDeleting = false;
 			String toDelete = "";
-			BufferedImage img = new BufferedImage(width, height, 
-                    BufferedImage.TYPE_3BYTE_BGR);
-			mat = new Mat();
 			Thread ithread;
-			ICCCleaner cleaner = null;
+			ICCCleaner cleaner;
+			double startTime = System.currentTimeMillis();
 
+			//false when "end()" function is called
 			while (!isDone) {
-				if (video.read(mat)) {
-
-					//edit image
-//					if(RAINBOW){
-//						img = setColor(ICCEditor.Color.ALL, img, colorCounter++);
-//						colorCounter = colorCounter % ICCEditor.allColors().length;
-//					}
-//					else if(myColor != null){
-//						img = setColor(myColor, img, colorCounter++);
-//					}
-					
-					//show & record image
+				if (video.read(mat)) {//reads in video
+					System.out.printf("%.2f\n", ( System.currentTimeMillis() - startTime )/1000 );
+					//record image
+//					grayMat.convertTo(mat, 1);
+//					recorder.write(grayMat);
 					recorder.write(mat);
-					repaint(mat, img);
 					frameCount++;
 
-					//check end of video
+					//check end of current video segment
 					if(frameCount >= segmentLength){
 						recorder.release();
-
 						System.out.println("Finished writing: " + outputFileName);
 						que.enqueue(outputFileName);
 
-						//wait until segments == PRELOADSEGMENTS before
-						//repeatedly uploading the index file
+						//upload the index file
 						if(initiated){
 							oldestSegment = ++oldestSegment % MAX_SEGMENTS;
-							iwriter = new IndexWriter(que, oldestSegment,
-									segmentNum, MAX_SEGMENTS, INDEXFILE);
-							ithread = new Thread(iwriter);
-							ithread.start();
 						}
-						else{
-							iwriter = new IndexWriter(que, 0,
-									segmentNum, MAX_SEGMENTS, INDEXFILE);
-							ithread = new Thread(iwriter);
-							ithread.start();
-							if(segmentNum == PRELOADSEGMENTS){
-								initiated = true;
-							}
+						else if(currentSegment == PRELOADSEGMENTS){
+							initiated = true;
 						}
+						iwriter = new IndexWriter(que, oldestSegment,
+								currentSegment, MAX_SEGMENTS, INDEXFILE);
+						ithread = new Thread(iwriter);
+						ithread.start();
+
+						//delete old video segments
 						if(startDeleting){
-							del = segmentNum - DELETESEGMENTS;
-							if(del < 0){
-								del += 100;
+							deleteSegment = currentSegment - DELETESEGMENTS -1;
+							if(deleteSegment < 0){//when current video segment id starts back at 0
+								deleteSegment += MAX_SEGMENTS;
 							}
-							toDelete = PREFIX + del + FILE_EXT;
-							cleaner = new ICCCleaner(s3, toDelete);
+							toDelete = PREFIX + deleteSegment + FILE_EXT;
+							cleaner = new ICCCleaner(s3, toDelete, VIDEO_FOLDER);
 							cleaner.start();
 						}
-						else if(segmentNum == DELETESEGMENTS){
+						else if(currentSegment == DELETESEGMENTS){
 							startDeleting = true;
 						}
-						outputFileName = PREFIX + (++segmentNum) + FILE_EXT;
+
+						//start new recording
+						outputFileName = PREFIX + (++currentSegment) + FILE_EXT;
 						recorder = new VideoWriter();
-						recorder.open(outputFileName,
-								fourCC.toInt(), video.get(Videoio.CAP_PROP_FPS), frameSize, HASCOLOR);
-						segmentNum = segmentNum % MAX_SEGMENTS;
+						recorder.open(VIDEO_FOLDER + outputFileName,
+								fourCC.toInt(), FPS, frameSize, HASCOLOR);
+						currentSegment = currentSegment % MAX_SEGMENTS;
+						
+						//reset frame count
 						frameCount = 0;
 					}
 				}
@@ -161,35 +156,14 @@ public class ICCRunner extends Thread {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-			video.release();
-			recorder.release();
+		video.release();
+		recorder.release();
 		System.out.println("Runner successfully closed");
 	}
 	
-//	private Frame setColor(ICCEditor.Color color, Frame img, int colorCounter){
-//		ICCEditor editor = new ICCEditor();
-//		OpenCVFrameConverter.ToIplImage converter =
-//				new OpenCVFrameConverter.ToIplImage();
-//		Mat ipl;
-////		ipl = converter.convertToIplImage(img);
-////		editor.set(ipl);
-//		switch(color){
-//		case ALL :
-//			ICCEditor.Color[] colors = ICCEditor.allColors();
-//			editor.setPixelValue(colors[colorCounter]);
-//			break;
-//		default :
-//			editor.setPixelValue(color);
-//			break;
-//		}
-////		img = converter.convert(ipl);
-//		return img;
-//	}
-	
-	public void repaint(Mat mat, BufferedImage img){
-		
-	}
-	
+	/*
+	 * getCurrentFrame() used by FrameDisplay to get current video image
+	 */
 	public Image getCurrentFrame() throws NullPointerException {
 		int w = mat.cols(),
 			h = mat.rows();
@@ -204,6 +178,10 @@ public class ICCRunner extends Thread {
         return img;
 	}
 
+	/*
+	 * end() used to end the current video stream
+	 * - also used by ICCRunnerShutDownHook
+	 */
 	public void end(){
 		isDone = true;
 		System.out.println("Attempting to close runner...");
@@ -221,9 +199,10 @@ public class ICCRunner extends Thread {
 		}
 		
 		que = new SharedQueue<>(MAX_SEGMENTS + 1);
-		s3 = new S3Uploader(BUCKETNAME, que);
+		s3 = new S3Uploader(BUCKETNAME, que, VIDEO_FOLDER);
 		Runtime.getRuntime().addShutdownHook(new ICCRunnerShutdownHook(s3, iccr));
 		s3.start();
+		que.enqueue("StreamIndex.txt"); //test
 		iccr.start();
 	}
 }

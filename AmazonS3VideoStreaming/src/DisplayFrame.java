@@ -47,10 +47,10 @@ public class DisplayFrame extends JFrame {
 			else
 				g.drawImage(videoIn.getCurrentFrame(), 0, 0, this);
 			
-		} catch(NullPointerException e){
-			System.err.println("No video to capture, willCapture attempt again in 5 seconds");
+		} catch(Exception e){
+			System.err.println("No video to capture, will attempt again in 2 seconds");
 			try{
-				Thread.sleep(5000);
+				Thread.sleep(2000);
 			} catch(InterruptedException ie){}
 		}
 	}

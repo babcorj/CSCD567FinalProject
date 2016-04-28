@@ -48,15 +48,18 @@ import com.amazonaws.services.s3.model.S3Object;
  */
 public class S3Uploader extends Thread {
 
+	private static String videoFolder;
+
 	private String bucketName;
 	private String key;
 	private SharedQueue<String> que;
 	private boolean isDone = false;
 	private AmazonS3 s3;
 	
-	public S3Uploader(String bucket, SharedQueue<String> theque){
+	public S3Uploader(String bucket, SharedQueue<String> theque, String theVideoFolder){
 		bucketName = bucket;
 		que = theque;
+		videoFolder = theVideoFolder;
 	}
 
     public void run() {
@@ -113,12 +116,11 @@ public class S3Uploader extends Thread {
             		continue;
             	}
             	try{
-            		System.out.println("Here");
-            		s3.putObject(new PutObjectRequest(bucketName, key, loadVideoFile(key)));
-            		System.out.println("Not Here");
-            		System.out.println("Downloading an object...");
-                    S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-                    System.out.println("Content-Type: "  + object.getObjectMetadata().getContentType());
+            		File videoFile = loadVideoFile(key);
+            		s3.putObject(new PutObjectRequest(bucketName, key, videoFile));
+            		System.out.println("S3: Downloading file '" + key + "'");
+//                    S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
+//                    System.out.println("Content-Type: "  + object.getObjectMetadata().getContentType());
             	} catch(IOException e) {
             		e.printStackTrace();
             	}
@@ -146,6 +148,7 @@ public class S3Uploader extends Thread {
                     + "a serious internal problem while trying to communicate with S3, "
                     + "such as not being able to access the network.");
             System.out.println("Error Message: " + ace.getMessage());
+            System.out.println("Current file to upload: " + key);
         }
     }
 
@@ -157,7 +160,7 @@ public class S3Uploader extends Thread {
      * @throws IOException
      */
     private static File loadVideoFile(String fin) throws IOException {
-        File file = new File(fin);
+        File file = new File(videoFolder + fin);
         if(!file.exists()){
         	throw new IOException("Cannot find file '" + fin + "'");
         }
