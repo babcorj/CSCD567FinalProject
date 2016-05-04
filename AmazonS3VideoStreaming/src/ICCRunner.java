@@ -18,7 +18,7 @@ public class ICCRunner extends Thread {
 	
 	//VISUAL SETTINGS
 	private final boolean RAINBOW = false;
-//	private final ICCEditor.Color myColor = ICCEditor.Color.BLUE;
+//	private final ICCEditor.Color myColor = ICCEditor.Color.ALL;
 	private final ICCEditor.Color myColor = null;
 	
 	public ICCRunner() {

@@ -122,6 +122,9 @@ public class S3Downloader extends Thread {
 				try{
 					key = parser.parse(getFile(STREAMINDEX));
 				} catch(IndexOutOfBoundsException e){
+					try{
+						Thread.sleep(200);
+					} catch(InterruptedException ie){}
 					continue;
 				}
 				System.out.println("Downloading an object...");
