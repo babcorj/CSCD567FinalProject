@@ -14,11 +14,10 @@
  * permissions and limitations under the License.
  */
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -28,8 +27,6 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 
@@ -46,11 +43,8 @@ import com.amazonaws.services.s3.model.S3Object;
  *
  * http://aws.amazon.com/security-credentials
  */
-public class S3Downloader extends Thread {
+public class S3Downloader extends S3UserStream {
 
-	private String bucketName;
-	private String key;
-	private boolean isDone = false;
 	private String output;
 	private VideoStream stream;
 	private StreamIndexParser parser;
@@ -59,7 +53,7 @@ public class S3Downloader extends Thread {
 	private String prefix;
 
 	public S3Downloader(String bucket, String prefix, String output, VideoStream stream) {
-		bucketName = bucket;
+		super(bucket);
 		this.output = output;
 		this.stream = stream;
 		this.prefix = prefix;
@@ -73,13 +67,18 @@ public class S3Downloader extends Thread {
 		 * profile by reading from the credentials file located at
 		 * (/Users/ryanj/.aws/credentials).
 		 */
+
+		//---------------------------------------------------------------------
+		//Verify Amazon Credentials
+
 		AWSCredentials credentials = null;
 		try {
 			credentials = new ProfileCredentialsProvider("default").getCredentials();
 		} catch (Exception e) {
-			throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
-					+ "Please make sure that your credentials file is at the correct "
-					+ "location (/Users/ryanj/.aws/credentials), and is in valid format.", e);
+			System.err.println("Cannot load the credentials from the credential profiles file. "
+					+ "\nPlease make sure that your credentials file is at the correct "
+					+ "location (/Users/username/.aws/credentials), and is in valid format.");
+			System.exit(-1);
 		}
 
 		s3 = new AmazonS3Client(credentials);
@@ -90,99 +89,70 @@ public class S3Downloader extends Thread {
 		System.out.println("Getting Started with Amazon S3");
 		System.out.println("===========================================\n");
 
-		try {
-			parser = new StreamIndexParser(prefix, getFile(STREAMINDEX));
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 		
-		try {
-			/*
-			 * List the buckets in your account
-			 */
-			System.out.println("Listing buckets");
-			for (Bucket bucket : s3.listBuckets()) {
-				System.out.println(" - " + bucket.getName());
+		//---------------------------------------------------------------------
+		//Retreive the playlist
+
+		parser = null;
+		while(parser == null) {
+			try {	            
+				System.out.println("\nAttempting to obtain playlist...");
+				parser = new StreamIndexParser(prefix, getTemporaryFile(STREAMINDEX));
+			} catch (IOException e) {
+				System.err.println("Failed to retrieve playlist!");
+				Utility.pause(500);
+				continue;
 			}
-			System.out.println();
-
-			/*
-			 * Upload an object to your bucket - You can easily upload a file to
-			 * S3, or upload directly an InputStream if you know the length of
-			 * the data in the stream. You can also specify your own metadata
-			 * when uploading to S3, which allows you set a variety of options
-			 * like content-type and content-encoding, plus additional metadata
-			 * specific to your applications.
-			 */
-
-			System.out.println("Downloading videostream from S3...\n");
-			while (!isDone) {
-				File video = null;
-				try{
-					key = parser.parse(getFile(STREAMINDEX));
-				} catch(IndexOutOfBoundsException e){
-					continue;
-				}
-				System.out.println("Downloading an object...");
-
-				video = getFile(key);
-
-				stream.add(video);
-			}
-				
-			try {
-				sleep(500);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-	    	deleteIndexFile();
-			System.out.println("S3 Downloader successfully closed");
-
-			/*
-			 * Delete an object - Unless versioning has been turned on for your
-			 * bucket, there is no way to undelete an object, so use caution
-			 * when deleting objects.
-			 */
-			// System.out.println("Deleting an object\n");
-			// s3.deleteObject(bucketName, key);
-
-		} catch (AmazonServiceException ase) {
-			System.out.println("Caught an AmazonServiceException, which means your request made it "
-					+ "to Amazon S3, but was rejected with an error response for some reason.");
-			System.out.println("Error Message:    " + ase.getMessage());
-			System.out.println("HTTP Status Code: " + ase.getStatusCode());
-			System.out.println("AWS Error Code:   " + ase.getErrorCode());
-			System.out.println("Error Type:       " + ase.getErrorType());
-			System.out.println("Request ID:       " + ase.getRequestId());
-		} catch (AmazonClientException ace) {
-			System.out.println("Caught an AmazonClientException, which means the client encountered "
-					+ "a serious internal problem while trying to communicate with S3, "
-					+ "such as not being able to access the network.");
-			System.out.println("Error Message: " + ace.getMessage());
 		}
-	}
+		System.out.println("Playlist obtained!");
 
-	/**
-	 * Loads the video file specified in fin
-	 *
-	 * @return The video file specified in fin.
-	 *
-	 * @throws IOException
-	 */
-	private static File loadVideoFile(String fin) throws IOException {
-		File file = new File(fin);
-		if (!file.exists()) {
-			throw new IOException("Cannot find file '" + fin + "'");
+		//---------------------------------------------------------------------
+		//Get video stream
+		
+		File videoFile = null;
+		System.out.println("Obtaining videostream from S3...\n");
+		while (!isDone) {
+			try{
+				key = parser.parse(getTemporaryFile(STREAMINDEX));
+				videoFile = getTemporaryFile(key);
+			}
+			catch(IOException ioe){
+				System.err.println("Failed to parse playlist!");
+				continue;
+			}
+			catch(IndexOutOfBoundsException e){
+				Utility.pause(100);
+				continue;
+			}
+			catch (AmazonServiceException ase) {
+				System.out.println("Caught an AmazonServiceException, which means your request made it "
+						+ "to Amazon S3, but was rejected with an error response for some reason.");
+				System.out.println("Error Message:    " + ase.getMessage());
+				System.out.println("HTTP Status Code: " + ase.getStatusCode());
+				System.out.println("AWS Error Code:   " + ase.getErrorCode());
+				System.out.println("Error Type:       " + ase.getErrorType());
+				System.out.println("Request ID:       " + ase.getRequestId());
+				System.out.println("Key:	           '" + key + "'");
+			}
+			catch (AmazonClientException ace) {
+				System.out.println("Caught an AmazonClientException, which means the client encountered "
+						+ "a serious internal problem while trying to communicate with S3, "
+						+ "such as not being able to access the network.");
+				System.out.println("Error Message: " + ace.getMessage());
+			}
+			System.out.println("Downloading file: " + key);
+			stream.add(videoFile.getAbsolutePath());
 		}
-		return file;
+
+		Utility.pause(500);
+		deleteTempFiles(videoFile);
+		System.out.println("S3 Downloader successfully closed");
 	}
 
 	public void setKey(String fout) {
 		key = fout;
 	}
-
+	
 	public void end() {
     	if(isDone) return;
     	System.out.println("Attempting to close S3 Downloader...");
@@ -192,40 +162,42 @@ public class S3Downloader extends Thread {
     	isDone = true;
 	}
 	
-	private File getFile(String key) {
+	private File getTemporaryFile(String key) throws IOException {
 		
-		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-		System.out.println("Content-Type: " + object.getObjectMetadata().getContentType());
-		InputStream instream = object.getObjectContent();
+		byte[] buffer;
 		File file = null;
 
-		byte[] buffer;
-		try {
-			buffer = new byte[instream.available()];
+		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
 
-			file = new File(String.format(output + "/%s.tmp", key));
-			OutputStream outstream = new FileOutputStream(file);
-			int read = 0;
-			while ((read = instream.read(buffer)) != -1) {
-				outstream.write(buffer, 0, read);
-			}
+//		System.out.println(
+//				"Content-Type: " + object.getObjectMetadata().getContentType());
 
-			outstream.close();
+		DataInputStream instream = new DataInputStream(object.getObjectContent());
+		buffer = new byte[instream.available()];
 
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		file = new File(String.format(output + "%s.tmp", key));
+		FileOutputStream outstream = new FileOutputStream(file);
+
+		int read = 0;
+		while ((read = instream.read(buffer)) != -1) {
+			outstream.write(buffer, 0, read);
 		}
-		 return file;
+		instream.close();
+		outstream.close();
+
+		return file;
 	}
 
-    private void deleteIndexFile(){
+	/*
+	 * designed to delete the temporary video file and index file
+	 */
+    private void deleteTempFiles(File videoFile){
     	try{
     		File toDelete = new File(STREAMINDEX + ".tmp");
     		toDelete.delete();
+    		videoFile.delete();
     	} catch(Exception e){
-    		e.printStackTrace();
+    		System.err.println("There was an error deleting the temporary files");
     	}
-//		System.out.println("Successfully deleted '"+file+"' locally");
     }
 }

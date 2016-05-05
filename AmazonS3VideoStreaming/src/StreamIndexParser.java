@@ -10,74 +10,67 @@ public class StreamIndexParser {
 	private int segmentRange = 5;
 	private int curr;
 	
-	public StreamIndexParser(String prefix, File StreamIndex) throws IOException {
-		
+	public StreamIndexParser(String prefix, File StreamIndex) throws IOException {	
+
 		this.prefix = prefix;
 		
-		BufferedReader input = new BufferedReader(new FileReader(StreamIndex));		
-		
-		MAXSEGMENTS = Integer.parseInt(input.readLine());
-		
+		BufferedReader input = new BufferedReader(new FileReader(StreamIndex));				
+		MAXSEGMENTS = Integer.parseInt(input.readLine());		
 		String[] minMax = input.readLine().split(" ");
 		input.close();
-		
-		curr = Integer.parseInt(minMax[1]);
 
+		curr = Integer.parseInt(minMax[1]);
 	}
 	
-	public String parse(File StreamIndex) throws IndexOutOfBoundsException {
-		
+	public String parse(File StreamIndex) throws IndexOutOfBoundsException, IOException {
+
 		String filename = null;
-		
-		try {
-		
-			BufferedReader input = new BufferedReader(new FileReader(StreamIndex));		
 
-			input.readLine(); //to ignore MAXSEGMENT
+		BufferedReader input = new BufferedReader(new FileReader(StreamIndex));
 
-			String[] minMax = input.readLine().split(" ");
-			input.close();
+		input.readLine(); //to ignore MAXSEGMENT
 
-			int min = Integer.parseInt(minMax[0]);
-			int max = Integer.parseInt(minMax[1]);
-			int nextVid = validateVideo(min, max);
+		String[] minMax = input.readLine().split(" ");
+		input.close();
 
-			filename = prefix + nextVid + ".flv";			
+		int min = Integer.parseInt(minMax[0]);
+		int max = Integer.parseInt(minMax[1]);
+		int nextVid = validateVideo(min, max) - 1;//-1 for error on runner
 
-		} catch (NumberFormatException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		filename = prefix + nextVid + ".avi";
 		
 		return filename;
 	}
 
 	private int validateVideo(int min, int max)
 			throws IndexOutOfBoundsException {
-		int nextVid = curr++ % MAXSEGMENTS;
-		if(nextVid < min) {
+		
+		if(curr < min) {
 			if(min + segmentRange != max){
-				if(nextVid > max){
-					curr--;
+				if(curr > max){
 					throw new IndexOutOfBoundsException();
 				}
-			} else nextVid = min;
+			} else curr = min;
 		}
-		else if(nextVid > max) {
+		else if(curr > max) {
 			if(min + segmentRange != max){
-				if(nextVid < min){
-					curr--;
+				if(curr < min){
 					throw new IndexOutOfBoundsException();
 				}
 			} else {
-				curr--;
 				throw new IndexOutOfBoundsException();
 			}
 		}
-		return nextVid;
+		incrementCurrentFrame();
+		return curr;
 	}
+	
+	private void incrementCurrentFrame(){
+		curr = ++curr % MAXSEGMENTS;
+	}
+	
+//	private void decrementCurrentFrame(){
+//		curr--;
+//	}
 }
 
