@@ -9,21 +9,11 @@ import javax.swing.border.EmptyBorder;
 @SuppressWarnings("serial")
 public class DisplayFrame extends JFrame {
 	private JPanel contentPane;
-	private ICCRunner myVideo;
-	private VideoPlayer videoIn;
+	private VideoSource source;
 
-	/**
-	 * Create the frame.
-	 */
-	public DisplayFrame(String name, ICCRunner theVideo) {
+	public DisplayFrame(String name, VideoSource theSource) {
 		super(name);
-		myVideo = theVideo;
-		init();
-	}
-
-	public DisplayFrame(String name, VideoPlayer theVideo) {
-		super(name);
-		videoIn = theVideo;
+		source = theSource;
 		init();
 	}
 
@@ -41,16 +31,11 @@ public class DisplayFrame extends JFrame {
 	public void paint(Graphics g){
 		g = contentPane.getGraphics();
 		try {
-			if(myVideo != null){
-				g.drawImage(myVideo.getCurrentFrame(), 0, 0, this);
-			}
-			else
-				g.drawImage(videoIn.getCurrentFrame(), 0, 0, this);
-			
+				g.drawImage(source.getCurrentFrame(), 0, 0, this);
 		} catch(Exception e){
-			System.err.println("No video to capture, will attempt again in 2 seconds");
+//			System.err.println("No video to capture, will attempt again...");
 			try{
-				Thread.sleep(2000);
+				Thread.sleep(200);
 			} catch(InterruptedException ie){}
 		}
 	}

@@ -1,35 +1,38 @@
-import java.io.File;
-import java.util.LinkedList;
-import java.util.Queue;
+//import java.io.File;
+//import java.util.LinkedList;
+//import java.util.Queue;
 
 public class VideoStream {
 
-	private Queue<File> stream = new LinkedList<>();
+	private final int QUEUE_SIZE = 100;
+	
+	private SharedQueue<String> stream;
 	private boolean isDone = false;
 
-	public synchronized void add(File video) {
+	public VideoStream(){
+		stream = new SharedQueue<>(QUEUE_SIZE);
+	}
 
-		stream.add(video);
+	public VideoStream(int sizeLimit){
+		stream = new SharedQueue<>(sizeLimit);
+	}
+
+	public void add(String video) {
+		stream.enqueue(video);
 		System.out.println("Video added to stream");
-		notify();
 	}
 
-	public synchronized File getFrame() {
+	public String getFrame() {
 
-		if (stream.isEmpty()) {
-			System.out.println("Stream is empty");
-			return null;
-		}
-
-		return stream.remove();
+		return stream.dequeue();
 	}
 
-	public synchronized boolean isEmpty() {
+	public boolean isEmpty() {
 
 		return stream.isEmpty();
 	}
 
-	public synchronized int size() {
+	public int size() {
 
 		return stream.size();
 	}
@@ -41,10 +44,4 @@ public class VideoStream {
 	public boolean isDone() {
 		return isDone;
 	}
-
-	/*
-	 * public Queue<Frame> getStream() {
-	 * 
-	 * return stream; }
-	 */
 }
