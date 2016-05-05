@@ -88,24 +88,16 @@ public class S3Uploader extends Thread {
         System.out.println("Getting Started with Amazon S3");
         System.out.println("===========================================\n");
 
-        try {
+        try { //start uploading video stream
+            s3.listBuckets();
             /*
              * List the buckets in your account
              */
-            System.out.println("Listing buckets");
-            for (Bucket bucket : s3.listBuckets()) {
-                System.out.println(" - " + bucket.getName());
-            }
-            System.out.println();
-
-            /*
-             * Upload an object to your bucket - You can easily upload a file to
-             * S3, or upload directly an InputStream if you know the length of
-             * the data in the stream. You can also specify your own metadata
-             * when uploading to S3, which allows you set a variety of options
-             * like content-type and content-encoding, plus additional metadata
-             * specific to your applications.
-             */
+//            System.out.println("Listing buckets");
+//            for (Bucket bucket : s3.listBuckets()) {
+//                System.out.println(" - " + bucket.getName());
+//            }
+//            System.out.println();
             
             System.out.println("Uploading videostream to S3...\n");
             while(!isDone || !que.isEmpty()){
@@ -116,25 +108,17 @@ public class S3Uploader extends Thread {
             		continue;
             	}
             	try{
+            		System.out.println("S3: Downloading file '" + key + "'");
             		File videoFile = loadVideoFile(key);
             		s3.putObject(new PutObjectRequest(bucketName, key, videoFile));
-            		System.out.println("S3: Downloading file '" + key + "'");
 //                    S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
 //                    System.out.println("Content-Type: "  + object.getObjectMetadata().getContentType());
             	} catch(IOException e) {
             		e.printStackTrace();
             	}
             	key = null;
+
             }
-            System.out.println("S3 Uploader successfully closed");
-
-            /*
-             * Delete an object - Unless versioning has been turned on for your bucket,
-             * there is no way to undelete an object, so use caution when deleting objects.
-             */
-            //System.out.println("Deleting an object\n");
-            //s3.deleteObject(bucketName, key);
-
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to Amazon S3, but was rejected with an error response for some reason.");
@@ -149,7 +133,9 @@ public class S3Uploader extends Thread {
                     + "such as not being able to access the network.");
             System.out.println("Error Message: " + ace.getMessage());
             System.out.println("Current file to upload: " + key);
-        }
+        } //end video stream
+
+        System.out.println("S3 Uploader successfully closed");
     }
 
     /**

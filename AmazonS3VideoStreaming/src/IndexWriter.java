@@ -4,21 +4,22 @@ import java.io.IOException;
 
 public class IndexWriter implements Runnable {
 	private int oldSegment, newSegment, maxSegments;
-	private String indexfile;
+	private String _folder, indexfile;
 	private SharedQueue<String> que;
 	
-	public IndexWriter(SharedQueue<String> queue, int old, int newest, int max, String name){
+	public IndexWriter(SharedQueue<String> queue, int old, int newest, int max, String folder, String name){
 		que = queue;
 		oldSegment = old;
 		newSegment = newest;
 		maxSegments = max;
+		_folder = folder;
 		indexfile = name;
 	}
 
 	public void run(){
 		FileWriter fw = null;
 		try{
-			fw = new FileWriter(new File(indexfile));
+			fw = new FileWriter(new File(_folder + indexfile));
 			fw.write(maxSegments + "\n" + oldSegment + " " + newSegment);
 			fw.close();
 		} catch(IOException e){

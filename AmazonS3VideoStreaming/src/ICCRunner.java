@@ -1,7 +1,6 @@
-/* Look at:
- * http://stackoverflow.com/questions/6546193/how-to-catch-an-exception-from-a-thread
- * 
- * For s3 shutdown error checking from main thread
+/*  
+ * NOTE: 	create a properties class that holds most of this info
+ * 			makes sure the video is uploaded before the index file
  */
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -20,8 +19,10 @@ public class ICCRunner extends Thread {
 
 	private final int PRELOADSEGMENTS = 5; // diff of min v. max in index file
 	private final int DELETESEGMENTS = 10; // delete x frames behind
+	private final int COMPRESSION_RATIO = 10;
+
 	private final double FPS = 20;
-	private final double SEGMENT_VIDEOLENGTH = 8; //seconds
+	private final double SEGMENT_VIDEOLENGTH = 4; //seconds
 	private final FourCC fourCC = new FourCC("MJPG");
 	private final String PREFIX = "myvideo";
 	private final String FILE_EXT = ".avi";
@@ -40,8 +41,7 @@ public class ICCRunner extends Thread {
 	@Override
 	public void run() {
 		int width = 0,
-			height = 0,
-			compressionRatio = 10;
+			height = 0;
 		String outputFileName = PREFIX + 0 + FILE_EXT;
 		VideoCapture video = null;
 		Size frameSize = null;
@@ -52,8 +52,8 @@ public class ICCRunner extends Thread {
 			//open video stream
 			video = new VideoCapture(0);
 			video.set(Videoio.CAP_PROP_FPS, FPS);
-			width = (int) video.get(Videoio.CV_CAP_PROP_FRAME_WIDTH)/compressionRatio;
-			height = (int) video.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT)/compressionRatio;
+			width = (int) video.get(Videoio.CV_CAP_PROP_FRAME_WIDTH)/COMPRESSION_RATIO;
+			height = (int) video.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT)/COMPRESSION_RATIO;
 			video.set(Videoio.CV_CAP_PROP_FRAME_WIDTH, width);
 			video.set(Videoio.CV_CAP_PROP_FRAME_HEIGHT, height);
 
@@ -86,23 +86,23 @@ public class ICCRunner extends Thread {
 			s3.end();
 			end();
 		}
-		try {
-			int frameCount = 0,
+
+		int frameCount = 0,
 				oldestSegment = 0,
 				currentSegment = 0,
 				deleteSegment = 0,
 				segmentLength = (int)(FPS * SEGMENT_VIDEOLENGTH);
-			boolean initiated = false,
-					startDeleting = false;
-			String toDelete = "";
-			Thread ithread;
-			ICCCleaner cleaner;
-			double startTime = System.currentTimeMillis();
+		boolean initiated = false,
+				startDeleting = false;
+		String toDelete = "";
+//		Thread ithread;
+		ICCCleaner cleaner;
+		double startTime = System.currentTimeMillis();
 
+		try {
 			//false when "end()" function is called
 			while (!isDone) {
 				if (video.read(mat)) {//reads in video
-					System.out.printf("%.2f\n", ( System.currentTimeMillis() - startTime )/1000 );
 					//record image
 //					grayMat.convertTo(mat, 1);
 //					recorder.write(grayMat);
@@ -111,6 +111,7 @@ public class ICCRunner extends Thread {
 
 					//check end of current video segment
 					if(frameCount >= segmentLength){
+						System.out.printf("Runtime: %.2f\n", ( System.currentTimeMillis() - startTime )/1000 );
 						recorder.release();
 						System.out.println("Finished writing: " + outputFileName);
 						que.enqueue(outputFileName);
@@ -122,14 +123,11 @@ public class ICCRunner extends Thread {
 						else if(currentSegment == PRELOADSEGMENTS){
 							initiated = true;
 						}
-						iwriter = new IndexWriter(que, oldestSegment,
-								currentSegment, MAX_SEGMENTS, INDEXFILE);
-						ithread = new Thread(iwriter);
-						ithread.start();
+						writePlaylist(iwriter, oldestSegment, currentSegment);
 
 						//delete old video segments
 						if(startDeleting){
-							deleteSegment = currentSegment - DELETESEGMENTS -1;
+							deleteSegment = currentSegment - DELETESEGMENTS;
 							if(deleteSegment < 0){//when current video segment id starts back at 0
 								deleteSegment += MAX_SEGMENTS;
 							}
@@ -137,16 +135,16 @@ public class ICCRunner extends Thread {
 							cleaner = new ICCCleaner(s3, toDelete, VIDEO_FOLDER);
 							cleaner.start();
 						}
-						else if(currentSegment == DELETESEGMENTS){
+						else if(currentSegment == DELETESEGMENTS-1){
 							startDeleting = true;
 						}
 
 						//start new recording
-						outputFileName = PREFIX + (++currentSegment) + FILE_EXT;
+						currentSegment = incrementVideoSegment(currentSegment);
+						outputFileName = PREFIX + currentSegment + FILE_EXT;
 						recorder = new VideoWriter();
 						recorder.open(VIDEO_FOLDER + outputFileName,
 								fourCC.toInt(), FPS, frameSize, HASCOLOR);
-						currentSegment = currentSegment % MAX_SEGMENTS;
 						
 						//reset frame count
 						frameCount = 0;
@@ -160,7 +158,7 @@ public class ICCRunner extends Thread {
 		recorder.release();
 		System.out.println("Runner successfully closed");
 	}
-	
+
 	/*
 	 * getCurrentFrame() used by FrameDisplay to get current video image
 	 */
@@ -175,7 +173,9 @@ public class ICCRunner extends Thread {
         mat.get(0, 0, dat);
         img.getRaster().setDataElements(0, 0, 
                                mat.cols(), mat.rows(), dat);
-        return img;
+        return img.getScaledInstance(img.getWidth()*COMPRESSION_RATIO,
+        		img.getHeight()*COMPRESSION_RATIO, Image.SCALE_FAST);
+//        return img;
 	}
 
 	/*
@@ -204,5 +204,23 @@ public class ICCRunner extends Thread {
 		s3.start();
 		que.enqueue("StreamIndex.txt"); //test
 		iccr.start();
+
+		try{
+			s3.join();
+			iccr.join();
+		}catch(InterruptedException e){
+			//maybe add something
+		}
+	}
+	
+	private void writePlaylist(IndexWriter iwriter, int oldestSegment, int currentSegment){
+		iwriter = new IndexWriter(que, oldestSegment,
+				currentSegment, MAX_SEGMENTS, VIDEO_FOLDER, INDEXFILE);
+		Thread ithread = new Thread(iwriter);
+		ithread.start();
+	}
+	
+	private int incrementVideoSegment(int videoSegment){
+		return ++videoSegment % MAX_SEGMENTS;
 	}
 }
