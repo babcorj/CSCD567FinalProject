@@ -12,7 +12,7 @@ import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 import org.opencv.core.Size;
 
-public class ICCRunner extends Thread {
+public class ICCRunner extends VideoSource {
 	private final static int MAX_SEGMENTS = 100; //in reference to naming
 	private final static String BUCKETNAME = "icc-videostream-00";
 	private final static String VIDEO_FOLDER = "./videos/";
@@ -30,10 +30,13 @@ public class ICCRunner extends Thread {
 
 	private static S3Uploader s3;
 	private static SharedQueue<String> que;
-	
-	private boolean isDone = false;
-	private Mat mat = new Mat();
-	private Mat grayMat = null;
+
+//	private Mat grayMat = null;
+
+	public ICCRunner(){	
+		super();
+		className = "ICC Runner";
+	}
 	
 	//VISUAL SETTINGS
 	private final boolean HASCOLOR = true;
@@ -200,7 +203,7 @@ public class ICCRunner extends Thread {
 		
 		que = new SharedQueue<>(MAX_SEGMENTS + 1);
 		s3 = new S3Uploader(BUCKETNAME, que, VIDEO_FOLDER);
-		Runtime.getRuntime().addShutdownHook(new ICCRunnerShutdownHook(s3, iccr));
+		Runtime.getRuntime().addShutdownHook(new DisplayFrameShutdownHook(s3, iccr));
 		s3.start();
 		que.enqueue("StreamIndex.txt"); //test
 		iccr.start();

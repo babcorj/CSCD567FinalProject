@@ -46,18 +46,16 @@ import com.amazonaws.services.s3.model.S3Object;
  *
  * http://aws.amazon.com/security-credentials
  */
-public class S3Uploader extends Thread {
+public class S3Uploader extends S3UserStream {
 
 	private static String videoFolder;
 
-	private String bucketName;
 	private String key;
 	private SharedQueue<String> que;
-	private boolean isDone = false;
 	private AmazonS3 s3;
 	
 	public S3Uploader(String bucket, SharedQueue<String> theque, String theVideoFolder){
-		bucketName = bucket;
+		super(bucket);
 		que = theque;
 		videoFolder = theVideoFolder;
 	}
