@@ -1,2 +1,0 @@
-#Video segment length: 2.0 sec
-#Compression ratio: 0.1

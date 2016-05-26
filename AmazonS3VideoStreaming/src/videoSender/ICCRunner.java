@@ -28,6 +28,7 @@ public class ICCRunner extends VideoSource {
 	private static DisplayFrame _display;
 	private static S3Uploader _s3;
 	private static SharedQueue<String> _stream;
+	private static SharedQueue<String> _signalQueue;
 	private static PerformanceLogger _logger;
 
 	public ICCRunner(){	
@@ -36,7 +37,8 @@ public class ICCRunner extends VideoSource {
 	}
 
 	public static void main(String[] args) {
-		System.out.println(System.getProperty("java.library.path"));
+//		/home/pi/Libraries/opencv-3.1.0/build/lib
+//		System.out.println(System.getProperty("java.library.path"));
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		ICCRunner iccr = new ICCRunner();
 		
@@ -49,14 +51,17 @@ public class ICCRunner extends VideoSource {
 		}
 		
 		_stream = new SharedQueue<>(_setup.getMaxSegments() + 1);
+		_signalQueue = new SharedQueue<>(100);
 		
 		_s3 = new S3Uploader(_setup.BUCKETNAME, _stream, _setup.VIDEO_FOLDER);
 		_s3.setIndexFile(_setup.INDEXFILE);
 		_s3.setLogger(_logger);
+		_s3.setSignal(_signalQueue);
 		
 		Runtime.getRuntime().addShutdownHook(new DisplayFrameShutdownHook(_s3, iccr));
 
 		_s3.start();
+		System.out.println(_signalQueue.dequeue());//used to wait for s3 to load
 		iccr.start();
 
 		try{
@@ -94,7 +99,7 @@ public class ICCRunner extends VideoSource {
 
 		try {
 			_logger.log("#Video segment length: " + _setup.getSegmentLength() + " sec\n");
-			_logger.log("#Compression ratio: " + _setup.getCompressionRatio());
+			_logger.log("#Compression ratio: " + _setup.getCompressionRatio() + "\n");
 			//false when "end()" function is called
 			while (!isDone) {
 				//capture and record video

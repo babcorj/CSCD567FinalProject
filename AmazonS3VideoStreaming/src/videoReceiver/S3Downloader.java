@@ -124,6 +124,7 @@ public class S3Downloader extends S3UserStream {
 				timeRequested = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 				key = parser.parse(getTemporaryFile(STREAMINDEX));
 				videoFile = getTemporaryFile(key);
+				
 			}
 			catch(IOException ioe){
 				System.err.println("Failed to parse playlist!");
@@ -160,7 +161,7 @@ public class S3Downloader extends S3UserStream {
 					double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 					double value = curRunTime - timeRequested;
 	
-	        		_logger.log("Total time to download " + key + ": ");
+	        		_logger.log("Total time to send " + key + ": ");
 					_logger.log(value);
 					_logger.log("\n");
 	    		}

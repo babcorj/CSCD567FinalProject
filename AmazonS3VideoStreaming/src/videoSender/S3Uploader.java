@@ -55,13 +55,14 @@ public class S3Uploader extends S3UserStream {
 
 	private String key;
 	private String _indexFile;
-	private SharedQueue<String> que;
+	private SharedQueue<String> _stream;
+	private SharedQueue<String> _signalQueue;
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
 	
 	public S3Uploader(String bucket, SharedQueue<String> theque, String theVideoFolder){
 		super(bucket);
-		que = theque;
+		_stream = theque;
 		videoFolder = theVideoFolder;
 	}
 
@@ -109,11 +110,12 @@ public class S3Uploader extends S3UserStream {
 //            }
 //            System.out.println();
             
-            System.out.println("Uploading videostream to S3...\n");
-            while(!isDone || !que.isEmpty()){
+//            System.out.println("Uploading videostream to S3...\n");
+            _signalQueue.enqueue("S3 Loaded Successfully!");
+            while(!isDone || !_stream.isEmpty()){
             	double timeReceived;
             	try{
-            		key = que.dequeue();
+            		key = _stream.dequeue();
             		timeReceived = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
             	} catch(NoSuchElementException e){
             		end();
@@ -190,11 +192,15 @@ public class S3Uploader extends S3UserStream {
     	_logger = logger;
     }
     
+    public void setSignal(SharedQueue<String> signal){
+    	_signalQueue = signal;
+    }
+    
     public void end(){
     	if(isDone) return;
     	System.out.println("Attempting to close S3 Uploader...");
-    	while(!que.isEmpty()){
-    		que.dequeue();
+    	while(!_stream.isEmpty()){
+    		_stream.dequeue();
     	}
     	isDone = true;
     }
