@@ -1,0 +1,114 @@
+3.85
+Total time to download myvideo27.avi: .54
+4.71
+Total time to download myvideo28.avi: .73
+6.12
+Total time to download myvideo29.avi: .61
+8.20
+Total time to download myvideo30.avi: .62
+10.32
+Total time to download myvideo31.avi: .67
+12.18
+Total time to download myvideo32.avi: .60
+14.39
+Total time to download myvideo33.avi: .60
+16.18
+Total time to download myvideo34.avi: .62
+18.29
+Total time to download myvideo35.avi: .79
+20.11
+Total time to download myvideo36.avi: .60
+22.89
+Total time to download myvideo37.avi: .78
+24.21
+Total time to download myvideo38.avi: .66
+26.19
+Total time to download myvideo39.avi: .65
+28.14
+Total time to download myvideo40.avi: .60
+30.48
+Total time to download myvideo41.avi: .60
+32.24
+Total time to download myvideo42.avi: .58
+34.14
+Total time to download myvideo43.avi: .58
+36.54
+Total time to download myvideo44.avi: .91
+38.03
+Total time to download myvideo45.avi: .57
+40.21
+Total time to download myvideo46.avi: .56
+42.12
+Total time to download myvideo47.avi: .61
+44.21
+Total time to download myvideo48.avi: .69
+46.06
+Total time to download myvideo49.avi: .57
+48.10
+Total time to download myvideo50.avi: .58
+50.10
+Total time to download myvideo51.avi: .57
+52.11
+Total time to download myvideo52.avi: .59
+54.26
+Total time to download myvideo53.avi: .57
+56.16
+Total time to download myvideo54.avi: .59
+58.29
+Total time to download myvideo55.avi: .63
+60.09
+Total time to download myvideo56.avi: .60
+62.16
+Total time to download myvideo57.avi: .66
+64.03
+Total time to download myvideo58.avi: .59
+66.06
+Total time to download myvideo59.avi: .60
+68.23
+Total time to download myvideo60.avi: .62
+70.15
+Total time to download myvideo61.avi: .63
+72.25
+Total time to download myvideo62.avi: .59
+74.15
+Total time to download myvideo63.avi: .58
+76.19
+Total time to download myvideo64.avi: .56
+78.14
+Total time to download myvideo65.avi: .60
+80.22
+Total time to download myvideo66.avi: .64
+82.06
+Total time to download myvideo67.avi: .59
+84.22
+Total time to download myvideo68.avi: .56
+86.13
+Total time to download myvideo69.avi: .57
+88.84
+Total time to download myvideo70.avi: .60
+90.04
+Total time to download myvideo71.avi: .55
+92.10
+Total time to download myvideo72.avi: .55
+94.09
+Total time to download myvideo73.avi: .56
+96.15
+Total time to download myvideo74.avi: .62
+98.03
+Total time to download myvideo75.avi: .56
+100.10
+Total time to download myvideo76.avi: .62
+102.33
+Total time to download myvideo77.avi: .65
+104.11
+Total time to download myvideo78.avi: .58
+106.86
+Total time to download myvideo79.avi: .57
+108.89
+Total time to download myvideo80.avi: .60
+110.83
+Total time to download myvideo81.avi: .63
+112.92
+Total time to download myvideo82.avi: .53
+114.82
+Total time to download myvideo83.avi: .62
