@@ -89,6 +89,7 @@ public class VideoPlayer extends VideoSource {
 		}
 
 		try{
+			_logger.close();
 			grabber.release();
 			video.delete();
 		} catch (Exception e){
