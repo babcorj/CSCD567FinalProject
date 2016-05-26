@@ -72,14 +72,21 @@ public class S3Uploader extends S3UserStream {
          * credential profile by reading from the credentials file located at
          * (/Users/ryanj/.aws/credentials).
          */
-        AWSCredentials credentials = null;
+    	
+    	/* 
+    	 * AWS IP occasionally changes. This will allow the application to receive
+    	 * and use new IP without querying DNS again with TTL being 60 
+    	 */
+    	java.security.Security.setProperty("networkaddress.cache.ttl", "60");
+
+    	AWSCredentials credentials = null;
         try {
             credentials = new ProfileCredentialsProvider("default").getCredentials();
         } catch (Exception e) {
             throw new AmazonClientException(
                     "Cannot load the credentials from the credential profiles file. " +
                     "Please make sure that your credentials file is at the correct " +
-                    "location (/Users/ryanj/.aws/credentials), and is in valid format.",
+                    "location (/users/username/.aws/credentials), and is in valid format.",
                     e);
         }
 
