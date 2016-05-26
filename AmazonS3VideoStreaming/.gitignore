@@ -1,5 +1,5 @@
-./videos
-./bin
-./classPath
-ICC_Performance.txt
+videos
+bin
+.classPath
+*.txt
 
