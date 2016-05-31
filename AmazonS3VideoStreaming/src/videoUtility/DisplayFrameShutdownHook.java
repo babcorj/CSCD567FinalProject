@@ -11,12 +11,12 @@ public class DisplayFrameShutdownHook extends Thread{
 
 	public void run(){
 		try{
-			_s3.end();
-			_s3.interrupt();
-			_s3.join();
 			_source.end();
 			_source.interrupt();
 			_source.join();
+			_s3.end();
+			_s3.interrupt();
+			_s3.join();
 		} catch(Exception e){
 			System.err.println(e + ": Unable to close thread(s)!");
 			e.printStackTrace();

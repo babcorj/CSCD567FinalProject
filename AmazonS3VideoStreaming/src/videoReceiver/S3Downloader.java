@@ -1,22 +1,8 @@
 package videoReceiver;
 import videoUtility.Utility;
+import videoUtility.VideoObject;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
-
-/*
- * Copyright 2010-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *  http://aws.amazon.com/apache2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -32,17 +18,11 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 
 
 /**
- * This sample demonstrates how to make basic requests to Amazon S3 using the
- * AWS SDK for Java.
- * <p>
- * <b>Prerequisites:</b> You must have a valid Amazon Web Services developer
- * account, and be signed up to use Amazon S3. For more information on Amazon
- * S3, see http://aws.amazon.com/s3.
- * <p>
  * WANRNING:</b> To avoid accidental leakage of your credentials, DO NOT keep
  * the credentials file in your source directory.
  *
@@ -50,12 +30,13 @@ import com.amazonaws.services.s3.model.S3Object;
  */
 public class S3Downloader extends S3UserStream {
 
+	private final String INDEXFILE = "StreamIndex.txt";
+
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
 	private StreamIndexParser parser;
 	private String output;
 	private String prefix;
-	private String STREAMINDEX = "StreamIndex.txt";
 	private VideoStream stream;
 	
 	public S3Downloader(String bucket, String prefix, String output, VideoStream stream) {
@@ -71,7 +52,7 @@ public class S3Downloader extends S3UserStream {
 		/*
 		 * The ProfileCredentialsProvider will return your [default] credential
 		 * profile by reading from the credentials file located at
-		 * (/Users/ryanj/.aws/credentials).
+		 * (/Users/username/.aws/credentials).
 		 */
 
 		//---------------------------------------------------------------------
@@ -97,13 +78,13 @@ public class S3Downloader extends S3UserStream {
 
 		
 		//---------------------------------------------------------------------
-		//Retreive the playlist
+		//Retrieve the playlist
 
 		parser = null;
 		while(parser == null) {
 			try {	            
 				System.out.println("\nAttempting to obtain playlist...");
-				parser = new StreamIndexParser(prefix, getTemporaryFile(STREAMINDEX));
+				parser = new StreamIndexParser(prefix, getTemporaryFile(INDEXFILE));
 			} catch (IOException e) {
 				System.err.println("Failed to retrieve playlist!");
 				Utility.pause(500);
@@ -111,20 +92,20 @@ public class S3Downloader extends S3UserStream {
 			}
 		}
 		System.out.println("Playlist obtained!");
-
+		
 		//---------------------------------------------------------------------
 		//Get video stream
 		
-		double timeRequested = 0;
+		double currTimeStamp = 0;
 		File videoFile = null;
+		VideoObject videoSegment = null;
 		System.out.println("Obtaining videostream from S3...\n");
 
 		while (!isDone) {
 			try{
-				timeRequested = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-				key = parser.parse(getTemporaryFile(STREAMINDEX));
-				videoFile = getTemporaryFile(key);
-				
+				key = parser.parse(getTemporaryFile(INDEXFILE));
+				currTimeStamp = parser.currentTimeStamp();
+				videoFile = getTemporaryFile(key);				
 			}
 			catch(IOException ioe){
 				System.err.println("Failed to parse playlist!");
@@ -150,19 +131,20 @@ public class S3Downloader extends S3UserStream {
 						+ "such as not being able to access the network.");
 				System.out.println("Error Message: " + ace.getMessage());
 			}
+			
 			System.out.println("Downloading file: " + key);
-			stream.add(videoFile.getAbsolutePath());
+
+			videoSegment = new VideoObject(videoFile.getAbsolutePath()).setTimeStamp(currTimeStamp);
+			stream.add(videoSegment);
+			
 			try{
-	    		if(!key.equals(STREAMINDEX)){
-	//        		_logger.log("Finished sending " + key + " to S3: ");
-					_logger.logTime();
-					_logger.log("\n");
-	
+	    		if(!key.equals(INDEXFILE)){
 					double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-					double value = curRunTime - timeRequested;
-	
-	        		_logger.log("Total time to send " + key + ": ");
-					_logger.log(value);
+					double lag = curRunTime - currTimeStamp;
+					//time to send vs. time received
+					_logger.logTime();
+					_logger.log(" ");
+					_logger.log(lag);
 					_logger.log("\n");
 	    		}
 			} catch(IOException e){
@@ -171,7 +153,8 @@ public class S3Downloader extends S3UserStream {
 		}
 
 		Utility.pause(500);
-		deleteTempFiles(videoFile);
+		closeEverything(videoFile);
+
 		System.out.println("S3 Downloader successfully closed");
 	}
 
@@ -181,6 +164,17 @@ public class S3Downloader extends S3UserStream {
 	
 	public void setPerformanceLog(PerformanceLogger perfLog){
 		_logger = perfLog;
+	}
+
+	public void closeEverything(File lastTempFile){
+		deleteTempFiles(lastTempFile);
+		try{
+			_logger.close();
+			s3.putObject(new PutObjectRequest(bucketName, key, new File("VideoPlayer_log.txt")));
+			s3.putObject(new PutObjectRequest(bucketName, key, new File("S3Downloader_log.txt")));
+		}catch(IOException e){
+			System.err.println("Could not close S3 logger!");
+		}
 	}
 	
 	public void end() {
@@ -212,6 +206,7 @@ public class S3Downloader extends S3UserStream {
 		while ((read = instream.read(buffer)) != -1) {
 			outstream.write(buffer, 0, read);
 		}
+		
 		instream.close();
 		outstream.close();
 
@@ -223,7 +218,7 @@ public class S3Downloader extends S3UserStream {
 	 */
     private void deleteTempFiles(File videoFile){
     	try{
-    		File toDelete = new File(STREAMINDEX + ".tmp");
+    		File toDelete = new File(INDEXFILE + ".tmp");
     		toDelete.delete();
     		videoFile.delete();
     	} catch(Exception e){

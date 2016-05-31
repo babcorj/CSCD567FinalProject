@@ -129,14 +129,13 @@ public class S3Uploader extends S3UserStream {
             		if(!key.equals(_indexFile)){
 //	            		_logger.log("Finished sending " + key + " to S3: ");
 						_logger.logTime();
-						_logger.log("\n");
-	
+
 						double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 						double value = curRunTime - timeReceived;
-	
-	            		_logger.log("Total time to send " + key + ": ");
-						_logger.log(value);
-						_logger.log("\n");
+
+	            		_logger.log(" ");
+	            		_logger.log(value);
+	            		_logger.log("\n");
             		}
 					
             	} catch(IOException e) {
@@ -144,7 +143,7 @@ public class S3Uploader extends S3UserStream {
             	}
             	key = null;
 
-            }
+            }//end while
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which means your request made it "
                     + "to Amazon S3, but was rejected with an error response for some reason.");
@@ -159,8 +158,15 @@ public class S3Uploader extends S3UserStream {
                     + "such as not being able to access the network.");
             System.out.println("Error Message: " + ace.getMessage());
             System.out.println("Current file to upload: " + key);
-        } //end video stream
-
+        } finally {
+        	try{
+                _logger.close();
+        	} catch(IOException e){
+        		System.err.println(e);
+        	}
+        }
+        //end video stream
+        
         System.out.println("S3 Uploader successfully closed");
     }
 
