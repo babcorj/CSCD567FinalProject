@@ -1,0 +1,7 @@
+*.classpath
+AmazonS3VideoStreaming/.classpath
+*.classpath
+AmazonS3VideoStreaming/bin/videoReceiver/S3Downloader.class
+*.class
+*.tmp
+*.p

@@ -1,12 +1,13 @@
 package videoReceiver;
 
 import videoUtility.SharedQueue;
+import videoUtility.VideoObject;
 
 public class VideoStream {
 
 	private final int QUEUE_SIZE = 100;
 	
-	private SharedQueue<String> stream;
+	private SharedQueue<VideoObject> stream;
 	private boolean isDone = false;
 
 	public VideoStream(){
@@ -17,12 +18,12 @@ public class VideoStream {
 		stream = new SharedQueue<>(sizeLimit);
 	}
 
-	public void add(String video) {
+	public void add(VideoObject video) {
 		stream.enqueue(video);
 		System.out.println("Video added to stream");
 	}
 
-	public String getFrame() {
+	public VideoObject getFrame() {
 
 		return stream.dequeue();
 	}

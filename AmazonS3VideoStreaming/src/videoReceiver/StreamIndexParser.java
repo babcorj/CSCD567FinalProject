@@ -11,6 +11,7 @@ public class StreamIndexParser {
 	private final int MAXSEGMENTS;
 	private int segmentRange = 5;
 	private int curr;
+	private double currTimeStamp;
 	
 	public StreamIndexParser(String prefix, File StreamIndex) throws IOException {	
 
@@ -33,7 +34,6 @@ public class StreamIndexParser {
 		input.readLine(); //to ignore MAXSEGMENT
 
 		String[] minMax = input.readLine().split(" ");
-		input.close();
 
 		int min = Integer.parseInt(minMax[0]);
 		int max = Integer.parseInt(minMax[1]);
@@ -41,9 +41,24 @@ public class StreamIndexParser {
 
 		filename = prefix + nextVid + ".avi";
 		
+		String str = "";
+		while((str = input.readLine()) != null){
+			String[] line = str.split(" ");
+			if(nextVid == Integer.parseInt(line[0])){
+				currTimeStamp = Double.parseDouble(line[1]);
+				break;
+			}
+		}
+		
+		input.close();
+
 		return filename;
 	}
 
+	public double currentTimeStamp() throws IOException {
+		return currTimeStamp;
+	}
+	
 	private int validateVideo(int min, int max)
 			throws IndexOutOfBoundsException {
 		

@@ -2,23 +2,28 @@ package videoUtility;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
 
 public class PerformanceLogger {
 
-	private double _startTime;
+	private BigDecimal _startTime;
 	private FileWriter _fw;
 	
 	public PerformanceLogger(String filename) throws IOException {
 		_fw = new FileWriter(filename);
 	}
 	
-	public double getTime(){
+	public BigDecimal getStartTime(){
 		return _startTime;
 	}
 	
+	public double getTime(){
+		return _startTime.doubleValue();
+	}
+	
 	public synchronized void log(double number){
-		DecimalFormat formatter = new DecimalFormat("#.00");
+		DecimalFormat formatter = new DecimalFormat("#.000");
 		
 		try{
 			_fw.write(formatter.format(number));
@@ -46,13 +51,17 @@ public class PerformanceLogger {
 	}
 	
 	public synchronized void logTime(){
-		DecimalFormat formatter = new DecimalFormat("#.00");
+		double cur = System.currentTimeMillis();
+		double startTime = _startTime.doubleValue();
+		double timelapse = (cur - startTime)/1000;
+		DecimalFormat formatter = new DecimalFormat("#.000");
 		
 		try{
-			_fw.write(formatter.format((System.currentTimeMillis() - _startTime)/1000));
+			_fw.write(formatter.format(timelapse));
 		}
 		catch(IOException e){
-			System.err.println("Logging error:" + _startTime);
+			e.printStackTrace();
+			System.err.println("Logging error:" + (cur - startTime)/1000);
 		}
 	}
 	
@@ -60,7 +69,11 @@ public class PerformanceLogger {
 		_fw.close();
 	}
 	
+	public void setStartTime(BigDecimal time){
+		_startTime = time;
+	}
+	
 	public void startTime(){
-		_startTime = System.currentTimeMillis();
+		_startTime = new BigDecimal(System.currentTimeMillis());
 	}
 }
