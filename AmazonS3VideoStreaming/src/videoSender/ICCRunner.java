@@ -29,11 +29,12 @@ public class ICCRunner extends VideoSource {
 	private static ICCSetup _setup = new ICCSetup()
 			.setCompressionRatio(0.1)
 			.setFourCC("MJPG")
-			.setFPS(20)
+			.setFPS(5)
 			.setMaxSegmentsSaved(10)
 			.setPreload(5)
 			.setSegmentLength(5);
-	
+
+	private final static String _logDirectory = "log/";
 	private final static String _setupFileName = "setup.txt";
 	private static DisplayFrame _display;
 	private static S3Uploader _s3;
@@ -48,7 +49,7 @@ public class ICCRunner extends VideoSource {
 	}
 
 	public static void main(String[] args) {
-//		/home/pi/Libraries/opencv-3.1.0/build/lib
+//		Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
 //		System.out.println(System.getProperty("java.library.path"));
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
@@ -63,8 +64,8 @@ public class ICCRunner extends VideoSource {
         PerformanceLogger s3logger = null;
 
 		try{
-			s3logger = new PerformanceLogger(s3loggerFilename);
-			_logger = new PerformanceLogger(loggerFilename);
+			s3logger = new PerformanceLogger(s3loggerFilename, _logDirectory);
+			_logger = new PerformanceLogger(loggerFilename, _logDirectory);
 			_display = new DisplayFrame("Instant Cloud Camera", iccr);
 			_display.setVisible(true);
 		} catch (Exception e) {
@@ -119,6 +120,7 @@ public class ICCRunner extends VideoSource {
 
 		int frameCount = 0, oldestSegment = 0, currentSegment = 0;
 		int segmentLength = (int)(_setup.getFPS() * _setup.getSegmentLength());
+		long delay = (long)(1000/_setup.getFPS());
 		boolean initiated = false,
 			startDeleting = false;
 		double timeStarted;
@@ -176,13 +178,20 @@ public class ICCRunner extends VideoSource {
 						//reset frame count
 						frameCount = 0;
 					}
-				}
-				Utility.pause(45);
-			}
+//					Utility.pause(delay);
+					try{
+						Thread.sleep(delay);
+					}catch(InterruptedException e){
+						System.err.println(e);
+					}
+				}//end if read mat
+			}//end while
 			_logger.close();
+			_signalQueue.enqueue(_logger.getFileName());
+			_signalQueue.enqueue(_logger.getFilePath());
 			grabber.release();
 			recorder.release();
-		}
+		}//end try
 		catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -247,10 +256,10 @@ public class ICCRunner extends VideoSource {
 		FileWriter fw = null;
 		try{
 			fw = new FileWriter(_setupFileName);
-//			SimpleDateFormat sdf = new SimpleDateFormat("MMM dd,yyyy HH:mm");    
-//			Date resultdate = new Date(time);
-//			fw.write(sdf.format(resultdate) + "\n");
-			fw.write(time.toString());
+			fw.write(time.toString() + "\n");
+			fw.write(_setup.getCompressionRatio() + " ");
+			fw.write(_setup.getFPS() + " ");
+			fw.write(_setup.getSegmentLength() + "\n");
 			fw.close();
 		} catch(IOException e){
 			System.err.println("Unable to create setup file!");

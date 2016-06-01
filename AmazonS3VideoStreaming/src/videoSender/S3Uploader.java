@@ -35,6 +35,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
+import videoUtility.Utility;
 
 /**
  * This sample demonstrates how to make basic requests to Amazon S3 using the
@@ -112,6 +113,10 @@ public class S3Uploader extends S3UserStream {
             
 //            System.out.println("Uploading videostream to S3...\n");
             _signalQueue.enqueue("S3 Loaded Successfully!");
+            Utility.pause(500);
+            String setupfile = _signalQueue.dequeue();
+            s3.putObject(new PutObjectRequest(bucketName, setupfile, new File(setupfile)));
+            
             while(!isDone || !_stream.isEmpty()){
             	double timeReceived;
             	try{
@@ -161,6 +166,12 @@ public class S3Uploader extends S3UserStream {
         } finally {
         	try{
                 _logger.close();
+                String runnerLog = _signalQueue.dequeue();
+                String runnerLogPath = _signalQueue.dequeue();
+                String s3Log = _logger.getFileName();
+                String s3LogPath = _logger.getFilePath();
+                s3.putObject(new PutObjectRequest(bucketName, runnerLog, new File(runnerLogPath)));
+                s3.putObject(new PutObjectRequest(bucketName, s3Log, new File(s3LogPath)));
         	} catch(IOException e){
         		System.err.println(e);
         	}
