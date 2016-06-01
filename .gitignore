@@ -5,3 +5,4 @@ AmazonS3VideoStreaming/bin/videoReceiver/S3Downloader.class
 *.class
 *.tmp
 *.p
+*.class

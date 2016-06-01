@@ -3,10 +3,13 @@ import videoUtility.Utility;
 import videoUtility.VideoObject;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
+import videoUtility.SharedQueue;
 
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 
 import com.amazonaws.AmazonClientException;
@@ -31,9 +34,11 @@ import com.amazonaws.services.s3.model.S3Object;
 public class S3Downloader extends S3UserStream {
 
 	private final String INDEXFILE = "StreamIndex.txt";
-
+	private final String SETUPFILE = "setup.txt";
+	
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
+	private SharedQueue<String> _signalQueue;
 	private StreamIndexParser parser;
 	private String output;
 	private String prefix;
@@ -76,6 +81,19 @@ public class S3Downloader extends S3UserStream {
 		System.out.println("Getting Started with Amazon S3");
 		System.out.println("===========================================\n");
 
+		//---------------------------------------------------------------------
+		//Retrieve the setup file
+		try{
+			parseSetupFile();
+			File indexTmp = new File(INDEXFILE + ".tmp");
+			if(indexTmp.exists()){
+				indexTmp.delete();
+			}
+			Utility.pause(500);
+			_signalQueue.dequeue();
+		} catch(IOException e){
+			System.err.println("S3: Failed to retrieve setup file!");
+		}
 		
 		//---------------------------------------------------------------------
 		//Retrieve the playlist
@@ -87,7 +105,7 @@ public class S3Downloader extends S3UserStream {
 				parser = new StreamIndexParser(prefix, getTemporaryFile(INDEXFILE));
 			} catch (IOException e) {
 				System.err.println("Failed to retrieve playlist!");
-				Utility.pause(500);
+				Utility.pause(100);
 				continue;
 			}
 		}
@@ -105,7 +123,7 @@ public class S3Downloader extends S3UserStream {
 			try{
 				key = parser.parse(getTemporaryFile(INDEXFILE));
 				currTimeStamp = parser.currentTimeStamp();
-				videoFile = getTemporaryFile(key);				
+				videoFile = getTemporaryFile(key);
 			}
 			catch(IOException ioe){
 				System.err.println("Failed to parse playlist!");
@@ -186,6 +204,38 @@ public class S3Downloader extends S3UserStream {
     	isDone = true;
 	}
 	
+	private void parseSetupFile() throws IOException {
+		File setupFile = getSetupFile();
+		BufferedReader br = new BufferedReader(new FileReader(setupFile));
+		String startTimeMillis = br.readLine();
+		String[] specs = br.readLine().split(" ");
+		br.close();
+		_signalQueue.enqueue(startTimeMillis);
+		_signalQueue.enqueue(specs[0]);
+		_signalQueue.enqueue(specs[1]);
+		_signalQueue.enqueue(specs[2]);
+	}
+	
+	private File getSetupFile() throws IOException {
+		S3Object object = s3.getObject(new GetObjectRequest(bucketName, SETUPFILE));
+
+		DataInputStream instream = new DataInputStream(object.getObjectContent());
+		byte[] buffer = new byte[instream.available()];
+
+		File setupFile = new File(String.format(output + "%s.tmp", key));
+		FileOutputStream outstream = new FileOutputStream(setupFile);
+
+		int read = 0;
+		while ((read = instream.read(buffer)) != -1) {
+			outstream.write(buffer, 0, read);
+		}
+		
+		instream.close();
+		outstream.close();
+
+		return setupFile;
+	}
+	
 	private File getTemporaryFile(String key) throws IOException {
 		
 		byte[] buffer;
@@ -224,5 +274,9 @@ public class S3Downloader extends S3UserStream {
     	} catch(Exception e){
     		System.err.println("There was an error deleting the temporary files");
     	}
+    }
+    
+    public void setSignal(SharedQueue<String> signal){
+    	_signalQueue = signal;
     }
 }

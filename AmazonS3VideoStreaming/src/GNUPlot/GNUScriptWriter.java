@@ -1,6 +1,7 @@
 package GNUPlot;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 import java.util.ListIterator;
 
 public class GNUScriptWriter {
@@ -75,10 +76,23 @@ public class GNUScriptWriter {
 		
 		PlotObject gnu = null;
 		int[] cols = null;
-		
-		scriptBuilder.append("set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5   # --- blue\n");
-		scriptBuilder.append("set style line 2 lc rgb '#dd181f' lt 1 lw 2 pt 5 ps 1.5   # --- red\n");
-		
+
+		List<PlotObject> plotList = _params.getPlots();
+		if(plotList.get(0).hasLine()){
+			scriptBuilder.append("set style line 1 ");
+			scriptBuilder.append(plotList.get(0).getLine());
+			scriptBuilder.append("\n");
+		}else{
+			scriptBuilder.append("set style line 1 lc rgb '#0060ad' lt 1 lw 2 pt 7 ps 1.5   # --- blue\n");			
+		}
+		if(plotList.get(1).hasLine()){
+			scriptBuilder.append("set style line 2 ");
+			scriptBuilder.append(plotList.get(1).getLine());
+			scriptBuilder.append("\n");
+		}else{
+			scriptBuilder.append("set style line 2 lc rgb '#dd181f' lt 1 lw 2 pt 5 ps 1.5   # --- red\n");
+		}
+
 		scriptBuilder.append("plot \"");
 
 		int plotCount = 1;
@@ -100,6 +114,7 @@ public class GNUScriptWriter {
 			scriptBuilder.append(" title \"");
 			scriptBuilder.append(gnu.getTitle());
 			scriptBuilder.append("\" with linespoints ls ");
+
 			scriptBuilder.append(plotCount++);
 			if(plots.hasNext()){
 				scriptBuilder.append(", \\\n\"");
