@@ -1,5 +1,6 @@
 package videoUtility;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -9,9 +10,11 @@ public class PerformanceLogger {
 
 	private BigDecimal _startTime;
 	private FileWriter _fw;
+	private String _filename;
+	private String _folder;
 	
-	public PerformanceLogger(String filename) throws IOException {
-		_fw = new FileWriter(filename);
+	public PerformanceLogger(String filename, String location) throws IOException {
+		_fw = new FileWriter((_folder=location) + (_filename=filename));
 	}
 	
 	public BigDecimal getStartTime(){
@@ -20,6 +23,14 @@ public class PerformanceLogger {
 	
 	public double getTime(){
 		return _startTime.doubleValue();
+	}
+	
+	public String getFileName(){
+		return _filename;
+	}
+	
+	public String getFilePath(){
+		return new File(_folder + _filename).getAbsolutePath();
 	}
 	
 	public synchronized void log(double number){
