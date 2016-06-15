@@ -32,6 +32,7 @@ public class VideoPlayer extends VideoSource {
 	private final static String S3LOG = "S3Downloader_log.txt";
 	private final static String SCRIPTFILE = "inScript.p";
 	private final static String TEMP_FOLDER = "";
+	private final static String LOG_FOLDER = "log/";
 	private final static String VIDEO_PREFIX = "myvideo";
 
 	private static List<Double> _records;
@@ -93,10 +94,11 @@ public class VideoPlayer extends VideoSource {
 
 				video = new File(videoSegment.getFileName());
 				grabber = new VideoCapture(video.getAbsolutePath());
-				FPS = grabber.get(Videoio.CAP_PROP_FPS);
+//				grabber.set(Videoio.CAP_PROP_FPS, Double.parseDouble(_specs[1]));
+				double fps = Double.parseDouble(_specs[1]);
 
 				while (grabber.read(mat) == true) {
-					Utility.pause((long) (1000/FPS));
+					Utility.pause((long) (1000/fps));
 				}
 				grabber.release();
 				video.delete();
@@ -144,11 +146,11 @@ public class VideoPlayer extends VideoSource {
 		PerformanceLogger s3logger = null;
 
 		try{
-			_logger = new PerformanceLogger(PLAYERLOG);
-			s3logger = new PerformanceLogger(S3LOG);
+			_logger = new PerformanceLogger(PLAYERLOG, LOG_FOLDER);
+			s3logger = new PerformanceLogger(S3LOG, LOG_FOLDER);
 			_logger.setStartTime(new BigDecimal(millis));
 			s3logger.setStartTime(new BigDecimal(millis));
-			writeGNUPlotScript(SCRIPTFILE, PLAYERLOG, S3LOG);
+			writeGNUPlotScript(SCRIPTFILE, LOG_FOLDER+PLAYERLOG, LOG_FOLDER+S3LOG);
 		}
 		catch(IOException ioe){
 			System.err.println("Failed to open performance log");

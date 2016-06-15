@@ -33,6 +33,7 @@ import com.amazonaws.services.s3.model.S3Object;
  */
 public class S3Downloader extends S3UserStream {
 
+	private final String VIDEO_FOLDER = "videos/";
 	private final String INDEXFILE = "StreamIndex.txt";
 	private final String SETUPFILE = "setup.txt";
 	
@@ -85,7 +86,8 @@ public class S3Downloader extends S3UserStream {
 		//Retrieve the setup file
 		try{
 			parseSetupFile();
-			File indexTmp = new File(INDEXFILE + ".tmp");
+			String tmpI = VIDEO_FOLDER + INDEXFILE + ".tmp";
+			File indexTmp = new File(tmpI);
 			if(indexTmp.exists()){
 				indexTmp.delete();
 			}
@@ -142,19 +144,21 @@ public class S3Downloader extends S3UserStream {
 				System.out.println("Error Type:       " + ase.getErrorType());
 				System.out.println("Request ID:       " + ase.getRequestId());
 				System.out.println("Key:	           '" + key + "'");
+				continue;
 			}
 			catch (AmazonClientException ace) {
 				System.out.println("Caught an AmazonClientException, which means the client encountered "
 						+ "a serious internal problem while trying to communicate with S3, "
 						+ "such as not being able to access the network.");
 				System.out.println("Error Message: " + ace.getMessage());
+				continue;
 			}
 			
 			System.out.println("Downloading file: " + key);
 
 			videoSegment = new VideoObject(videoFile.getAbsolutePath()).setTimeStamp(currTimeStamp);
 			stream.add(videoSegment);
-			
+
 			try{
 	    		if(!key.equals(INDEXFILE)){
 					double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
@@ -188,8 +192,8 @@ public class S3Downloader extends S3UserStream {
 		deleteTempFiles(lastTempFile);
 		try{
 			_logger.close();
-			s3.putObject(new PutObjectRequest(bucketName, key, new File("VideoPlayer_log.txt")));
-			s3.putObject(new PutObjectRequest(bucketName, key, new File("S3Downloader_log.txt")));
+//			s3.putObject(new PutObjectRequest(bucketName, key, new File("VideoPlayer_log.txt")));
+//			s3.putObject(new PutObjectRequest(bucketName, key, new File("S3Downloader_log.txt")));
 		}catch(IOException e){
 			System.err.println("Could not close S3 logger!");
 		}
@@ -237,7 +241,7 @@ public class S3Downloader extends S3UserStream {
 	}
 	
 	private File getTemporaryFile(String key) throws IOException {
-		
+		if(key == null) throw new IOException("Null key");
 		byte[] buffer;
 		File file = null;
 
@@ -268,7 +272,7 @@ public class S3Downloader extends S3UserStream {
 	 */
     private void deleteTempFiles(File videoFile){
     	try{
-    		File toDelete = new File(INDEXFILE + ".tmp");
+    		File toDelete = new File(VIDEO_FOLDER + INDEXFILE + ".tmp");
     		toDelete.delete();
     		videoFile.delete();
     	} catch(Exception e){

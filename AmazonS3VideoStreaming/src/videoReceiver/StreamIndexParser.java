@@ -76,7 +76,9 @@ public class StreamIndexParser {
 				if(curr < min){
 					curr = min;
 				}
-			} else return false;
+				else incrementCurrentFrame();
+			}
+			else return false;
 		}
 		else {
 			incrementCurrentFrame();

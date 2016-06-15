@@ -5,7 +5,6 @@ import videoUtility.DisplayFrame;
 import videoUtility.DisplayFrameShutdownHook;
 import videoUtility.PerformanceLogger;
 import videoUtility.SharedQueue;
-import videoUtility.Utility;
 import videoUtility.VideoObject;
 
 import java.awt.Image;
@@ -14,11 +13,15 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.util.LinkedList;
 
 import org.opencv.core.Core;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
+import org.opencv.imgproc.Imgproc;
 
 import GNUPlot.GNUScriptParameters;
 import GNUPlot.GNUScriptWriter;
@@ -75,16 +78,20 @@ public class ICCRunner extends VideoSource {
 		_stream = new SharedQueue<>(_setup.getMaxSegments() + 1);
 		_signalQueue = new SharedQueue<>(100);
 
+		//Setup S3Uploader
 		_s3 = new S3Uploader(_setup.BUCKETNAME, _stream, _setup.VIDEO_FOLDER);
 		_s3.setIndexFile(_setup.INDEXFILE);
 		_s3.setSignal(_signalQueue);
 		
+		//Let DisplayFrame take care of shutdown work
+		//(When user closes display, program shuts down)
 		Runtime.getRuntime().addShutdownHook(new DisplayFrameShutdownHook(_s3, iccr));
 
 		_s3.start();
 		
-		System.out.println(_signalQueue.dequeue());//used to wait for s3 to load
+		System.out.println(_signalQueue.dequeue());//wait for s3 to load
 
+		//Configure log files
 		_logger.startTime();
 		s3logger.setStartTime(_logger.getStartTime());
 		_s3.setLogger(s3logger);
@@ -94,8 +101,8 @@ public class ICCRunner extends VideoSource {
 		iccr.start();
 
 		try{
-			_s3.join();
-			iccr.join();
+			_s3.join();//is there a purpose to wait for S3Downloader?
+			iccr.join();//is there a point?
 		} catch(InterruptedException e){
 			System.err.println(e);
 		}
@@ -123,7 +130,8 @@ public class ICCRunner extends VideoSource {
 		long delay = (long)(1000/_setup.getFPS());
 		boolean initiated = false,
 			startDeleting = false;
-		double timeStarted;
+		double timeStarted, curTime;
+		DecimalFormat formatter = new DecimalFormat("#.00");
 		String outputfilename = _setup.getFileName(currentSegment);
 		
 		try {
@@ -132,10 +140,12 @@ public class ICCRunner extends VideoSource {
 			_logger.log("#FPS(Frames Per Second): " + _setup.getFPS() + "\n");
 
 			timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-			//false when "end()" function is called
+			//isDone becomes false when "end()" function is called by DisplayShutdownHook
 			while (!isDone) {
 				//capture and record video
 				if (grabber.read(mat)) {
+					curTime = ((System.currentTimeMillis() - _logger.getTime())/1000);
+					Imgproc.putText(mat, formatter.format(curTime), new Point(mat.cols()-30,mat.rows()-12), Core.FONT_HERSHEY_PLAIN, 0.5, new Scalar(255));
 					recorder.write(mat);
 					frameCount++;
 					//check end of current video segment
@@ -150,7 +160,7 @@ public class ICCRunner extends VideoSource {
 						_logger.log("\n");
 
 						timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-						
+
 						//setup preloaded segments
 						if(initiated){
 							oldestSegment = ++oldestSegment % _setup.getMaxSegments();
@@ -227,7 +237,7 @@ public class ICCRunner extends VideoSource {
 		
 		BufferedImage img = new BufferedImage(w, h, 
 				BufferedImage.TYPE_3BYTE_BGR);
-		
+
 		mat.get(0, 0, dat);
 		img.getRaster().setDataElements(0, 0, 
 				mat.cols(), mat.rows(), dat);
