@@ -10,7 +10,7 @@ public class GNUScriptParameters {
 	private LinkedList<PlotObject> _plots;
 	//With range
 	private int _startX, _startY, _startZ, _endX, _endY, _endZ;
-	private boolean _hasRange = false;
+//	private boolean _hasRange = false;
 	//With labels
 	private String _labelX = "";
 	private String _labelY = "";
@@ -37,7 +37,7 @@ public class GNUScriptParameters {
 		_startY = startY;
 		_endX = endX;
 		_endY = endY;
-		_hasRange = true;
+//		_hasRange = true;
 	}
 	
 	public GNUScriptParameters(String title,

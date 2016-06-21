@@ -15,6 +15,7 @@ public class ICCSetup {
 	private final String PREFIX = "myvideo";
 	private final String FILE_EXT = ".avi";
 
+	private int _device; 
 	private int _maxSegmentsSaved = 10; // delete x frames behind
 	private static int _maxSegments = 100; //in reference to naming
 	private int _preloadSegments = 5; // diff of min v. max in index file
@@ -82,7 +83,8 @@ public class ICCSetup {
 		return _segmentVideoLength;
 	}
 	
-	public VideoCapture getVideoCapture(){
+	public VideoCapture getVideoCapture() throws Exception{
+		initVideoCapture();
 		return _videoCap;
 	}
 	
@@ -91,6 +93,11 @@ public class ICCSetup {
 	
 	public ICCSetup setCompressionRatio(double compressionRatio){
 		_compressionRatio = compressionRatio;
+		return this;
+	}
+	
+	public ICCSetup setDevice(int device){
+		_device = device;
 		return this;
 	}
 	
@@ -122,8 +129,8 @@ public class ICCSetup {
 	//-------------------------------------------------------------------------
 	//Whatever Methods
 	
-	public void initVideoCapture(int device) throws Exception {
-		_videoCap = new VideoCapture(device);
+	public void initVideoCapture() throws Exception {
+		_videoCap = new VideoCapture(_device);
 		_videoCap.set(Videoio.CAP_PROP_FPS, _fps);
 
 		double width = _videoCap.get(Videoio.CV_CAP_PROP_FRAME_WIDTH)*_compressionRatio;

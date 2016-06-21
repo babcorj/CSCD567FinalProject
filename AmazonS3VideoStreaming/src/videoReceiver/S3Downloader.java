@@ -1,4 +1,5 @@
 package videoReceiver;
+
 import videoUtility.Utility;
 import videoUtility.VideoObject;
 import videoUtility.PerformanceLogger;
@@ -21,16 +22,8 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 
-
-/**
- * WANRNING:</b> To avoid accidental leakage of your credentials, DO NOT keep
- * the credentials file in your source directory.
- *
- * http://aws.amazon.com/security-credentials
- */
 public class S3Downloader extends S3UserStream {
 
 	private final String VIDEO_FOLDER = "videos/";
@@ -44,6 +37,9 @@ public class S3Downloader extends S3UserStream {
 	private String output;
 	private String prefix;
 	private VideoStream stream;
+
+	//-------------------------------------------------------------------------
+	//Constructor method
 	
 	public S3Downloader(String bucket, String prefix, String output, VideoStream stream) {
 		super(bucket);
@@ -52,9 +48,12 @@ public class S3Downloader extends S3UserStream {
 		this.prefix = prefix;
 	}
 
+	//-------------------------------------------------------------------------
+	//Run method
+	
 	@Override
 	public void run() {
-
+		Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
 		/*
 		 * The ProfileCredentialsProvider will return your [default] credential
 		 * profile by reading from the credentials file located at
@@ -91,12 +90,20 @@ public class S3Downloader extends S3UserStream {
 			if(indexTmp.exists()){
 				indexTmp.delete();
 			}
-			Utility.pause(500);
-			_signalQueue.dequeue();
+			synchronized(this){
+				String str = null;
+				while(str == null){
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						str = _signalQueue.dequeue();
+					}
+				}
+			}
 		} catch(IOException e){
 			System.err.println("S3: Failed to retrieve setup file!");
 		}
-		
+
 		//---------------------------------------------------------------------
 		//Retrieve the playlist
 
@@ -112,10 +119,10 @@ public class S3Downloader extends S3UserStream {
 			}
 		}
 		System.out.println("Playlist obtained!");
-		
+
 		//---------------------------------------------------------------------
 		//Get video stream
-		
+
 		double currTimeStamp = 0;
 		File videoFile = null;
 		VideoObject videoSegment = null;
@@ -126,16 +133,13 @@ public class S3Downloader extends S3UserStream {
 				key = parser.parse(getTemporaryFile(INDEXFILE));
 				currTimeStamp = parser.currentTimeStamp();
 				videoFile = getTemporaryFile(key);
-			}
-			catch(IOException ioe){
+			} catch(IOException ioe){
 				System.err.println("Failed to parse playlist!");
 				continue;
-			}
-			catch(IndexOutOfBoundsException e){
+			} catch(IndexOutOfBoundsException e){
 				Utility.pause(100);
 				continue;
-			}
-			catch (AmazonServiceException ase) {
+			} catch (AmazonServiceException ase) {
 				System.out.println("Caught an AmazonServiceException, which means your request made it "
 						+ "to Amazon S3, but was rejected with an error response for some reason.");
 				System.out.println("Error Message:    " + ase.getMessage());
@@ -145,41 +149,40 @@ public class S3Downloader extends S3UserStream {
 				System.out.println("Request ID:       " + ase.getRequestId());
 				System.out.println("Key:	           '" + key + "'");
 				continue;
-			}
-			catch (AmazonClientException ace) {
+			} catch (AmazonClientException ace) {
 				System.out.println("Caught an AmazonClientException, which means the client encountered "
 						+ "a serious internal problem while trying to communicate with S3, "
 						+ "such as not being able to access the network.");
 				System.out.println("Error Message: " + ace.getMessage());
 				continue;
 			}
-			
+
 			System.out.println("Downloading file: " + key);
 
 			videoSegment = new VideoObject(videoFile.getAbsolutePath()).setTimeStamp(currTimeStamp);
 			stream.add(videoSegment);
 
-			try{
-	    		if(!key.equals(INDEXFILE)){
-					double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-					double lag = curRunTime - currTimeStamp;
-					//time to send vs. time received
-					_logger.logTime();
-					_logger.log(" ");
-					_logger.log(lag);
-					_logger.log("\n");
-	    		}
-			} catch(IOException e){
-				System.err.println();
-			}
+    		if(!key.equals(INDEXFILE)){
+    			logDownload(currTimeStamp);
+    		}
 		}
-
-		Utility.pause(500);
 		closeEverything(videoFile);
 
 		System.out.println("S3 Downloader successfully closed");
 	}
 
+	//-------------------------------------------------------------------------
+	//Public methods
+	
+	public void end() {
+		if(isDone) return;
+		System.out.println("Attempting to close S3 Downloader...");
+		while(!stream.isEmpty()){
+			stream.getFrame();
+		}
+		isDone = true;
+	}
+	
 	public void setKey(String fout) {
 		key = fout;
 	}
@@ -187,37 +190,32 @@ public class S3Downloader extends S3UserStream {
 	public void setPerformanceLog(PerformanceLogger perfLog){
 		_logger = perfLog;
 	}
+	
+	public void setSignal(SharedQueue<String> signal){
+		_signalQueue = signal;
+	}
 
-	public void closeEverything(File lastTempFile){
+	//-------------------------------------------------------------------------
+	//Private methods
+	
+	private void closeEverything(File lastTempFile){
 		deleteTempFiles(lastTempFile);
 		try{
 			_logger.close();
-//			s3.putObject(new PutObjectRequest(bucketName, key, new File("VideoPlayer_log.txt")));
-//			s3.putObject(new PutObjectRequest(bucketName, key, new File("S3Downloader_log.txt")));
 		}catch(IOException e){
 			System.err.println("Could not close S3 logger!");
 		}
 	}
 	
-	public void end() {
-    	if(isDone) return;
-    	System.out.println("Attempting to close S3 Downloader...");
-    	while(!stream.isEmpty()){
-    		stream.getFrame();
-    	}
-    	isDone = true;
-	}
-	
-	private void parseSetupFile() throws IOException {
-		File setupFile = getSetupFile();
-		BufferedReader br = new BufferedReader(new FileReader(setupFile));
-		String startTimeMillis = br.readLine();
-		String[] specs = br.readLine().split(" ");
-		br.close();
-		_signalQueue.enqueue(startTimeMillis);
-		_signalQueue.enqueue(specs[0]);
-		_signalQueue.enqueue(specs[1]);
-		_signalQueue.enqueue(specs[2]);
+	//deletes the temporary video file and index file
+	private void deleteTempFiles(File videoFile){
+		try{
+			File toDelete = new File(VIDEO_FOLDER + INDEXFILE + ".tmp");
+			toDelete.delete();
+			videoFile.delete();
+		} catch(Exception e){
+			System.err.println("S3: There was an error deleting the temporary files");
+		}
 	}
 	
 	private File getSetupFile() throws IOException {
@@ -230,7 +228,7 @@ public class S3Downloader extends S3UserStream {
 		FileOutputStream outstream = new FileOutputStream(setupFile);
 
 		int read = 0;
-		while ((read = instream.read(buffer)) != -1) {
+		while ((read = instream.read(buffer)) > 0) {
 			outstream.write(buffer, 0, read);
 		}
 		
@@ -247,9 +245,6 @@ public class S3Downloader extends S3UserStream {
 
 		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
 
-//		System.out.println(
-//				"Content-Type: " + object.getObjectMetadata().getContentType());
-
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		buffer = new byte[instream.available()];
 
@@ -257,7 +252,7 @@ public class S3Downloader extends S3UserStream {
 		FileOutputStream outstream = new FileOutputStream(file);
 
 		int read = 0;
-		while ((read = instream.read(buffer)) != -1) {
+		while ((read = instream.read(buffer)) > 0) {
 			outstream.write(buffer, 0, read);
 		}
 		
@@ -267,20 +262,50 @@ public class S3Downloader extends S3UserStream {
 		return file;
 	}
 
-	/*
-	 * designed to delete the temporary video file and index file
-	 */
-    private void deleteTempFiles(File videoFile){
-    	try{
-    		File toDelete = new File(VIDEO_FOLDER + INDEXFILE + ".tmp");
-    		toDelete.delete();
-    		videoFile.delete();
-    	} catch(Exception e){
-    		System.err.println("There was an error deleting the temporary files");
-    	}
-    }
-    
-    public void setSignal(SharedQueue<String> signal){
-    	_signalQueue = signal;
-    }
+	//logs time to send vs. time received
+	private void logDownload(double currTimeStamp){
+		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+		double lag = curRunTime - currTimeStamp;
+		try {
+			_logger.logTime();
+			_logger.log(" ");
+			_logger.log(lag);
+			_logger.log("\n");
+		} catch (IOException e) {
+			System.err.println("S3: Unable to log download!");
+		}
+	}
+	
+	private void parseSetupFile() throws IOException {
+		File setupFile = getSetupFile();
+		BufferedReader br = new BufferedReader(new FileReader(setupFile));
+		String startTimeMillis = br.readLine();
+		String[] specs = br.readLine().split(" ");
+		br.close();
+		_signalQueue.enqueue(startTimeMillis);
+		_signalQueue.enqueue(specs[0]);
+		_signalQueue.enqueue(specs[1]);
+		_signalQueue.enqueue(specs[2]);
+	}
+}
+
+//-----------------------------------------------------------------------------
+//Shutdown Hook
+
+class S3DownloaderShutdownHook extends Thread {
+	private S3Downloader _downloader;
+
+	public S3DownloaderShutdownHook(S3Downloader downloader){
+		_downloader = downloader;
+	}
+
+	public void run(){
+		_downloader.end();
+		try {
+			_downloader.interrupt();
+			_downloader.join();
+		} catch (InterruptedException e) {
+			System.err.println(e);
+		}
+	}
 }

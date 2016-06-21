@@ -1,24 +1,7 @@
 package videoSender;
 
-
-/*
- * Copyright 2010-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *  http://aws.amazon.com/apache2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-
 import java.io.File;
 import java.io.IOException;
-//import java.util.NoSuchElementException;
 import java.util.NoSuchElementException;
 
 import com.amazonaws.AmazonClientException;
@@ -35,21 +18,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
-import videoUtility.Utility;
 
-/**
- * This sample demonstrates how to make basic requests to Amazon S3 using the
- * AWS SDK for Java.
- * <p>
- * <b>Prerequisites:</b> You must have a valid Amazon Web Services developer
- * account, and be signed up to use Amazon S3. For more information on Amazon
- * S3, see http://aws.amazon.com/s3.
- * <p>
- * WANRNING:</b> To avoid accidental leakage of your credentials, DO NOT keep
- * the credentials file in your source directory.
- *
- * http://aws.amazon.com/security-credentials
- */
 public class S3Uploader extends S3UserStream {
 
 	private static String videoFolder;
@@ -60,6 +29,9 @@ public class S3Uploader extends S3UserStream {
 	private SharedQueue<String> _signalQueue;
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
+
+	//-------------------------------------------------------------------------
+	//Constructor
 	
 	public S3Uploader(String bucket, SharedQueue<String> theque, String theVideoFolder){
 		super(bucket);
@@ -67,167 +39,206 @@ public class S3Uploader extends S3UserStream {
 		videoFolder = theVideoFolder;
 	}
 
-    public void run() {
+	//-------------------------------------------------------------------------
+	//Run method
+	
+	public void run() {
 
-        /*
-         * The ProfileCredentialsProvider will return your [default]
-         * credential profile by reading from the credentials file located at
-         * (/Users/ryanj/.aws/credentials).
-         */
-    	
-    	/* 
-    	 * AWS IP occasionally changes. This will allow the application to receive
-    	 * and use new IP without querying DNS again with TTL being 60 
-    	 */
-    	java.security.Security.setProperty("networkaddress.cache.ttl", "60");
+		/*
+		 * The ProfileCredentialsProvider will return your [default]
+		 * credential profile by reading from the credentials file located at
+		 * (/Users/username/.aws/credentials).
+		 *
+		 * AWS IP occasionally changes. This will allow the application to receive
+		 * and use new IP without querying DNS again with TTL being 60 
+		 */
+		java.security.Security.setProperty("networkaddress.cache.ttl", "60");
 
-    	AWSCredentials credentials = null;
-        try {
-            credentials = new ProfileCredentialsProvider("default").getCredentials();
-        } catch (Exception e) {
-            throw new AmazonClientException(
-                    "Cannot load the credentials from the credential profiles file. " +
-                    "Please make sure that your credentials file is at the correct " +
-                    "location (/users/username/.aws/credentials), and is in valid format.",
-                    e);
-        }
+		AWSCredentials credentials = null;
 
-        s3 = new AmazonS3Client(credentials);
-        Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-        s3.setRegion(usWest2);
+		Runtime.getRuntime().addShutdownHook(new S3UploaderShutdownHook(this));
 
-        System.out.println("===========================================");
-        System.out.println("Getting Started with Amazon S3");
-        System.out.println("===========================================\n");
+		try {
+			credentials = new ProfileCredentialsProvider("default").getCredentials();
+		} catch (Exception e) {
+			throw new AmazonClientException(
+					"Cannot load the credentials from the credential profiles file. " +
+							"Please make sure that your credentials file is at the correct " +
+							"location (/users/username/.aws/credentials), and is in valid format.",
+							e);
+		}
 
-        try { //start uploading video stream
-            s3.listBuckets();
-            /*
-             * List the buckets in your account
-             */
-//            System.out.println("Listing buckets");
-//            for (Bucket bucket : s3.listBuckets()) {
-//                System.out.println(" - " + bucket.getName());
-//            }
-//            System.out.println();
-            
-//            System.out.println("Uploading videostream to S3...\n");
-            _signalQueue.enqueue("S3 Loaded Successfully!");
-            Utility.pause(500);
-            String setupfile = _signalQueue.dequeue();
-            s3.putObject(new PutObjectRequest(bucketName, setupfile, new File(setupfile)));
-            
-            while(!isDone || !_stream.isEmpty()){
-            	double timeReceived;
-            	try{
-            		key = _stream.dequeue();
-            		timeReceived = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-            	} catch(NoSuchElementException e){
-            		end();
-            		continue;
-            	}
-            	try{
-            		System.out.println("S3: Downloading file '" + key + "'");
-            		File videoFile = loadVideoFile(key);
-            		s3.putObject(new PutObjectRequest(bucketName, key, videoFile));
+		s3 = new AmazonS3Client(credentials);
+		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
+		s3.setRegion(usWest2);
 
-            		if(!key.equals(_indexFile)){
-//	            		_logger.log("Finished sending " + key + " to S3: ");
-						_logger.logTime();
+		System.out.println("===========================================");
+		System.out.println("Getting Started with Amazon S3");
+		System.out.println("===========================================\n");
 
-						double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-						double value = curRunTime - timeReceived;
+		//let ICCRunner know we're ready for the setup file
+		_signalQueue.enqueue("S3: Waiting for setup file...");
 
-	            		_logger.log(" ");
-	            		_logger.log(value);
-	            		_logger.log("\n");
-            		}
-					
-            	} catch(IOException e) {
-            		e.printStackTrace();
-            	}
-            	key = null;
+		synchronized(this){//receive and upload setup file
+			String setupfile = null;
+			while(setupfile == null){
+				try {
+					wait();
+				} catch (InterruptedException e1) {
+					setupfile = _signalQueue.dequeue();
+				}
+			}
+			uploadSetupFile(setupfile);
+			System.out.println("S3: Setup file successfully sent to S3");
+		}
 
-            }//end while
-        } catch (AmazonServiceException ase) {
-            System.out.println("Caught an AmazonServiceException, which means your request made it "
-                    + "to Amazon S3, but was rejected with an error response for some reason.");
-            System.out.println("Error Message:    " + ase.getMessage());
-            System.out.println("HTTP Status Code: " + ase.getStatusCode());
-            System.out.println("AWS Error Code:   " + ase.getErrorCode());
-            System.out.println("Error Type:       " + ase.getErrorType());
-            System.out.println("Request ID:       " + ase.getRequestId());
-        } catch (AmazonClientException ace) {
-            System.out.println("Caught an AmazonClientException, which means the client encountered "
-                    + "a serious internal problem while trying to communicate with S3, "
-                    + "such as not being able to access the network.");
-            System.out.println("Error Message: " + ace.getMessage());
-            System.out.println("Current file to upload: " + key);
-        } finally {
-        	try{
-                _logger.close();
-                String runnerLog = _signalQueue.dequeue();
-                String runnerLogPath = _signalQueue.dequeue();
-                String s3Log = _logger.getFileName();
-                String s3LogPath = _logger.getFilePath();
-                s3.putObject(new PutObjectRequest(bucketName, runnerLog, new File(runnerLogPath)));
-                s3.putObject(new PutObjectRequest(bucketName, s3Log, new File(s3LogPath)));
-        	} catch(IOException e){
-        		System.err.println(e);
-        	}
-        }
-        //end video stream
-        
-        System.out.println("S3 Uploader successfully closed");
-    }
+		while(!isDone || !_stream.isEmpty()){
+			try { //start uploading video stream
+				double timeReceived = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+				key = _stream.dequeue();
 
-    /**
-     * Loads the video file specified in fin
-     *
-     * @return The video file specified in fin.
-     *
-     * @throws IOException
-     */
-    private static File loadVideoFile(String fin) throws IOException {
-        File file = new File(videoFolder + fin);
-        if(!file.exists()){
-        	throw new IOException("Cannot find file '" + fin + "'");
-        }
-        return file;
-    }
-    
-    public void setKey(String fout){
-    	key = fout;
-    }
-    
-    //used to avoid logging index sending times
-    public void setIndexFile(String indexfile){
-    	_indexFile = indexfile;
-    }
-    
-    public void setLogger(PerformanceLogger logger){
-    	_logger = logger;
-    }
-    
-    public void setSignal(SharedQueue<String> signal){
-    	_signalQueue = signal;
-    }
-    
-    public void end(){
-    	if(isDone) return;
-    	System.out.println("Attempting to close S3 Uploader...");
-    	while(!_stream.isEmpty()){
-    		_stream.dequeue();
-    	}
-    	isDone = true;
-    }
+				try{
+					System.out.println("S3: Downloading file '" + key + "'");
+					File videoFile = loadVideoFile(key);
+					s3.putObject(new PutObjectRequest(bucketName, key, videoFile));
 
-    public void delete(String file){
-    	try{
-    		s3.deleteObject(new DeleteObjectRequest(bucketName, file));
-    	} catch(Exception e){
-    		e.printStackTrace();
-    	}
+					if(!key.equals(_indexFile)){
+						logUpload(timeReceived);
+					}
+				} catch(IOException e) {
+					e.printStackTrace();
+				}
+				key = null;
+
+			} catch (AmazonServiceException ase) {
+				System.out.println("Caught an AmazonServiceException, which means your request made it "
+						+ "to Amazon S3, but was rejected with an error response for some reason.");
+				System.out.println("Error Message:    " + ase.getMessage());
+				System.out.println("HTTP Status Code: " + ase.getStatusCode());
+				System.out.println("AWS Error Code:   " + ase.getErrorCode());
+				System.out.println("Error Type:       " + ase.getErrorType());
+				System.out.println("Request ID:       " + ase.getRequestId());
+			} catch (AmazonClientException ace) {
+				System.out.println("Caught an AmazonClientException, which means the client encountered "
+						+ "a serious internal problem while trying to communicate with S3, "
+						+ "such as not being able to access the network.");
+				System.out.println("Error Message: " + ace.getMessage());
+				System.out.println("Current file to upload: " + key);
+			} catch (NoSuchElementException ie){
+				//happens during dequeue when program exits
+			} catch (Exception e){
+				System.err.println(e);
+			}
+		}//end while
+
+		try{
+			_logger.close();
+			uploadLogFiles();
+		} catch(IOException e){
+			System.err.println(e);
+		}
+		System.out.println("S3 Uploader successfully closed");
+	}//end video stream
+
+	//-------------------------------------------------------------------------
+	//Public methods
+	
+	public void delete(String file){
+		try{
+			s3.deleteObject(new DeleteObjectRequest(bucketName, file));
+		} catch(Exception e){
+			e.printStackTrace();
+		}
 		System.out.println("Successfully deleted '"+file+"' from S3");
-    }
+	}
+	
+	public void end(){
+		if(isDone) return;
+		System.out.println("Attempting to close S3 Uploader...");
+		while(!_stream.isEmpty()){
+			_stream.dequeue();
+		}
+		isDone = true;
+	}
+	
+	public void setIndexFile(String indexfile){
+		_indexFile = indexfile;
+	}
+	
+	public void setLogger(PerformanceLogger logger){
+		_logger = logger;
+	}
+	
+	public void setKey(String fout){
+		key = fout;
+	}
+
+	public void setSignal(SharedQueue<String> signal){
+		_signalQueue = signal;
+	}
+
+	//-------------------------------------------------------------------------
+	//Private methods
+	
+	private File loadVideoFile(String fin) throws IOException {
+		File file = new File(videoFolder + fin);
+		if(!file.exists()){
+			throw new IOException("Cannot find file '" + fin + "'");
+		}
+		return file;
+	}
+
+	private void logUpload(double timeReceived){
+		_logger.logTime();
+
+		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+		double value = curRunTime - timeReceived;
+
+		try {
+			_logger.log(" ");
+			_logger.log(value);
+			_logger.log("\n");
+		} catch (IOException e) {
+			System.err.println("S3: Failed to log upload!");
+		}
+	}
+
+	private void uploadLogFiles() throws IOException {
+		String runnerLog = _signalQueue.dequeue();
+		String runnerLogPath = _signalQueue.dequeue();
+		String s3Log = _logger.getFileName();
+		String s3LogPath = _logger.getFilePath();
+		s3.putObject(new PutObjectRequest(bucketName, runnerLog, new File(runnerLogPath)));
+		s3.putObject(new PutObjectRequest(bucketName, s3Log, new File(s3LogPath)));
+	}
+	
+	private void uploadSetupFile(String setupfile){
+		try{
+			s3.putObject(new PutObjectRequest(bucketName, setupfile, new File(setupfile)));
+		} catch(Exception e){
+			System.err.println("S3: Failed to upload setup file!");
+			System.exit(-1);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+//Shutdown Hook
+
+class S3UploaderShutdownHook extends Thread {
+	private S3Uploader _uploader;
+
+	public S3UploaderShutdownHook(S3Uploader uploader){
+		_uploader = uploader;
+	}
+
+	public void run(){
+		_uploader.end();
+		try {
+			_uploader.interrupt();
+			_uploader.join();
+		} catch (InterruptedException e) {
+			System.err.println("S3Uploader end interrupted!");
+		}
+	}
 }

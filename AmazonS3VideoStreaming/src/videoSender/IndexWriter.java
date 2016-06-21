@@ -5,7 +5,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.LinkedList;
-import java.util.List;
 
 import videoUtility.SharedQueue;
 import videoUtility.VideoObject;

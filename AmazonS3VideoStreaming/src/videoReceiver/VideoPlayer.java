@@ -1,8 +1,8 @@
 package videoReceiver;
+
 import videoUtility.Calculate;
 //local package
 import videoUtility.DisplayFrame;
-import videoUtility.DisplayFrameShutdownHook;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
@@ -44,6 +44,9 @@ public class VideoPlayer extends VideoSource {
 	
 	private VideoStream stream;
 
+	//-------------------------------------------------------------------------
+	//Constructor method
+	
 	public VideoPlayer(String bucket, String prefix, String output) {
 		super();
 		className = "ICC VideoPlayer";
@@ -53,29 +56,37 @@ public class VideoPlayer extends VideoSource {
 		_signalQueue = new SharedQueue<>(10);
 		downloader.setSignal(_signalQueue);
 		downloader.start();
-		initLogger();
-		_signalQueue.enqueue("Finished setting up log files");
 	}
 
+	//-------------------------------------------------------------------------
+	//Main
+	
 	public static void main(String[] args) {
-
+		
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		VideoPlayer player = new VideoPlayer(BUCKET, VIDEO_PREFIX, TEMP_FOLDER);
+
+		initLogger();
 
 		player.start();
 
 		initDisplay(downloader, player);
 	}
 
+	//-------------------------------------------------------------------------
+	//Run method
+	
 	@Override
 	public void run() {
-		double FPS;
+		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
+		
+		double fps = Double.parseDouble(_specs[1]);
 		long startTime = System.currentTimeMillis();
 		File video = null;
 		VideoCapture grabber = null;
 		VideoObject videoSegment = null;
-
+		
 		System.out.println("Starting video player...");
 
 		while (!isDone) {
@@ -84,43 +95,32 @@ public class VideoPlayer extends VideoSource {
 
 			try {
 				videoSegment = stream.getFrame();
-    			//log time sent vs. time received
-				_logger.logTime();
-				_logger.log(" ");
-				double timeOut = (System.currentTimeMillis() - _logger.getTime())/1000
-						- videoSegment.getTimeStamp();
-				_logger.log((timeOut) + "\n");
-				_records.add(timeOut);
+				logDelay(videoSegment);
 
 				video = new File(videoSegment.getFileName());
 				grabber = new VideoCapture(video.getAbsolutePath());
-//				grabber.set(Videoio.CAP_PROP_FPS, Double.parseDouble(_specs[1]));
-				double fps = Double.parseDouble(_specs[1]);
+
+				grabber.set(Videoio.CAP_PROP_FPS, fps);
 
 				while (grabber.read(mat) == true) {
 					Utility.pause((long) (1000/fps));
 				}
 				grabber.release();
 				video.delete();
-
+				
 			} catch (Exception e) {
-				System.err.println("Problem reading video file: " + videoSegment.getFileName());
+				if(isDone) continue;
+				System.err.println("VP: Problem reading video file: " + videoSegment.getFileName());
 			}
 		}
-
-		try{
-			double avg = Calculate.average(_records);
-			_logger.log(String.format("#Avg Delay: " + avg + "\n"));
-			_logger.log(String.format("#StdDev: " + Calculate.standardDeviation(avg, _records)) + "\n");
-			_logger.close();
-			grabber.release();
-			video.delete();
-		} catch (Exception e){
-			//Video or grabber = NULL
-		}
+		closeEverything(video, grabber);
+		
 		System.out.println("VideoPlayer successfully closed");
 	}
 
+	//-------------------------------------------------------------------------
+	//Private static methods
+	
 	private static void initDisplay(S3UserStream s3, VideoPlayer player){
 		DisplayFrame display = null;
 
@@ -132,15 +132,11 @@ public class VideoPlayer extends VideoSource {
 			}
 			catch(Exception e){
 				System.err.println("Failed to load display!");
-				Utility.pause(1000);
+				Utility.pause(200);
 			}
 		}
-		DisplayFrameShutdownHook shutdownInstructions = new DisplayFrameShutdownHook(s3, player);
-		Runtime.getRuntime().addShutdownHook(shutdownInstructions);
 	}
 
-	//---------------------------------------------------------------------
-	//Setup -- sets PerformanceLogger start time
 	private static void initLogger(){
 		String millis = _signalQueue.dequeue();
 		PerformanceLogger s3logger = null;
@@ -152,12 +148,14 @@ public class VideoPlayer extends VideoSource {
 			s3logger.setStartTime(new BigDecimal(millis));
 			writeGNUPlotScript(SCRIPTFILE, LOG_FOLDER+PLAYERLOG, LOG_FOLDER+S3LOG);
 		}
-		catch(IOException ioe){
+		catch (IOException ioe){
 			System.err.println("Failed to open performance log");
 		}
 		downloader.setPerformanceLog(s3logger);
+		_signalQueue.enqueue("VP: Finished setting up log files");
+		downloader.interrupt();
 	}
-	
+
 	private static void writeGNUPlotScript(String scriptfile, String playerfile, String s3file){
 		_specs[0] = _signalQueue.dequeue();//compression
 		_specs[1] = _signalQueue.dequeue();//FPS
@@ -184,6 +182,60 @@ public class VideoPlayer extends VideoSource {
 			System.err.println(e);
 		}
 	}
+	
+	//-------------------------------------------------------------------------
+	//Private non-static methods
+	
+	private void closeEverything(File video, VideoCapture grabber){
+		double avg = Calculate.average(_records);
+		try {
+			_logger.log(String.format("#Avg Delay: " + avg + "\n"));
+			_logger.log(String.format("#StdDev: " + Calculate.standardDeviation(avg, _records)) + "\n");
+			_logger.close();
+		} catch (IOException e) {
+			System.err.println("VP: Failed to close log file!");;
+		}
+		try {
+			grabber.release();
+			video.delete();
+		} catch (Exception e){
+			System.err.println("VP: " + e);
+		}
+	}
+	
+	//log time sent vs. time received
+	private void logDelay(VideoObject videoSegment){
+		double timeOut = (System.currentTimeMillis() - _logger.getTime())/1000
+				- videoSegment.getTimeStamp();
+		try {
+			_logger.logTime();
+			_logger.log(" ");
+			_logger.log((timeOut) + "\n");
+		} catch (IOException e) {
+			System.err.println("VP: Failed to log video segment '"
+					+ videoSegment.getFileName() + "'");
+		}
+		_records.add(timeOut);
+	}
+}
 
+//-----------------------------------------------------------------------------
+//Shutdown Hook
 
+class VideoPlayerShutdownHook extends Thread {
+	private VideoPlayer _player;
+	
+	public VideoPlayerShutdownHook(VideoPlayer player){
+		_player = player;
+	}
+	
+	public void run(){
+		_player.end();
+		try {
+			_player.interrupt();
+			_player.join();
+		} catch (InterruptedException e) {
+			System.err.println(e);
+		}
+	}
 }
