@@ -1,48 +1,36 @@
 package videoReceiver;
 
 import videoUtility.SharedQueue;
-import videoUtility.VideoObject;
+import videoUtility.VideoSegment;
 
 public class VideoStream {
 
-	private final int QUEUE_SIZE = 100;
+	//-------------------------------------------------------------------------
+	//PARAMETERS
+	//-------------------------------------------------------------------------
+	private final int DEFAULT_SIZE = 100;
 	
-	private SharedQueue<VideoObject> stream;
-	private boolean isDone = false;
+	private SharedQueue<VideoSegment> _stream;
 
+	//-------------------------------------------------------------------------
+	//CONSTRUCTORS
+	//-------------------------------------------------------------------------
 	public VideoStream(){
-		stream = new SharedQueue<>(QUEUE_SIZE);
+		_stream = new SharedQueue<>(DEFAULT_SIZE);
 	}
 
-	public VideoStream(int sizeLimit){
-		stream = new SharedQueue<>(sizeLimit);
+	public VideoStream(int size){
+		_stream = new SharedQueue<>(size);
 	}
-
-	public void add(VideoObject video) {
-		stream.enqueue(video);
-		System.out.println("Video added to stream");
+	
+	//-------------------------------------------------------------------------
+	//PUBLIC METHODS
+	//-------------------------------------------------------------------------
+	public void add(VideoSegment video) {
+		video.getImageList();//turns byte[] data into BufferedImage list
+		_stream.enqueue(video);
 	}
-
-	public VideoObject getFrame() {
-
-		return stream.dequeue();
-	}
-
-	public boolean isEmpty() {
-
-		return stream.isEmpty();
-	}
-
-	public int size() {
-
-		return stream.size();
-	}
-
-	public void done() {
-		isDone = true;
-	}
-
-	public boolean isDone() {
-		return isDone;
+	public VideoSegment getFrame() {
+		return _stream.dequeue();
 	}
 }

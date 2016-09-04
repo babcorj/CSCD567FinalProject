@@ -3,12 +3,11 @@ package videoUtility;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.text.DecimalFormat;
 
 public class PerformanceLogger {
 
-	private BigDecimal _startTime;
+	private long _startTime;
 	private FileWriter _fw;
 	private String _filename;
 	private String _folder;
@@ -17,12 +16,12 @@ public class PerformanceLogger {
 		_fw = new FileWriter((_folder=location) + (_filename=filename));
 	}
 	
-	public BigDecimal getStartTime(){
+	public long getStartTime(){
 		return _startTime;
 	}
 	
 	public double getTime(){
-		return _startTime.doubleValue();
+		return _startTime;
 	}
 	
 	public String getFileName(){
@@ -63,7 +62,7 @@ public class PerformanceLogger {
 	
 	public synchronized void logTime(){
 		double cur = System.currentTimeMillis();
-		double startTime = _startTime.doubleValue();
+		double startTime = _startTime;
 		double timelapse = (cur - startTime)/1000;
 		DecimalFormat formatter = new DecimalFormat("#.000");
 		
@@ -80,11 +79,11 @@ public class PerformanceLogger {
 		_fw.close();
 	}
 	
-	public void setStartTime(BigDecimal time){
+	public void setStartTime(long time){
 		_startTime = time;
 	}
 	
 	public void startTime(){
-		_startTime = new BigDecimal(System.currentTimeMillis());
+		_startTime = System.currentTimeMillis();
 	}
 }

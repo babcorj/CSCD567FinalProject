@@ -27,4 +27,13 @@ public class Utility {
 
 		return d;
 	}
+	
+	public static String print(byte[] data){
+		StringBuilder sb = new StringBuilder();
+		for(int i = 0; i < data.length; i++){
+			if(i % 15 == 0) sb.append("\n");
+			sb.append(i + ": " + data[i] + " ");
+		}
+		return sb.toString();
+	}
 }

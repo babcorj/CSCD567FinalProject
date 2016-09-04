@@ -1,5 +1,6 @@
 package videoUtility;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
 
@@ -10,7 +11,7 @@ import java.util.NoSuchElementException;
  * @work Homework 3
  */
 
-public class SharedQueue<E> {
+public class SharedQueue<E> implements Iterable<E> {
 	final private LinkedList<E> myList;
 	private int maxSize;
 	private boolean stop = false;
@@ -25,6 +26,10 @@ public class SharedQueue<E> {
 		maxSize = size;
 	}
 
+	public synchronized E get(int i){
+		return myList.get(i);
+	}
+	
 	public synchronized void enqueue(E job) throws IllegalArgumentException {
 		if (isFull()) {
 			try {
@@ -68,5 +73,23 @@ public class SharedQueue<E> {
 
 	public synchronized boolean isFull() {
 		return myList.size() == maxSize;
+	}
+	
+	@Override
+	public Iterator<E> iterator() {
+		return new SharedQueueIterator();
+	}
+
+	class SharedQueueIterator implements Iterator<E> {
+
+		Iterator<E> _it = myList.iterator();
+		
+		public E next(){
+			return _it.next();
+		}
+		
+		public boolean hasNext(){
+			return _it.hasNext();
+		}
 	}
 }

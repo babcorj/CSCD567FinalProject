@@ -2,25 +2,26 @@ package videoSender;
 
 import videoUtility.VideoSource;
 import videoUtility.DisplayFrame;
+import videoUtility.FileData;
+import videoUtility.ICCMetadata;
+import videoUtility.ICCFrameWriter;
 import videoUtility.PerformanceLogger;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
-import videoUtility.VideoObject;
+import videoUtility.VideoSegment;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.util.LinkedList;
 
 import org.opencv.core.Core;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
-import org.opencv.videoio.VideoWriter;
 import org.opencv.imgproc.Imgproc;
 
 import GNUPlot.GNUScriptParameters;
@@ -29,28 +30,35 @@ import GNUPlot.PlotObject;
 
 public class ICCRunner extends VideoSource {
 
+	private final static int MAX_VIDEO_INDEX = 100;
+	private final static int MAX_SEGMENTS = 5;
+	
 	private static ICCSetup _setup = new ICCSetup()
-			.setCompressionRatio(0.25)
+			.setCompressionRatio(0.5)
 			.setDevice(0)
 			.setFourCC("MJPG")
 			.setFPS(10)
-			.setMaxSegmentsSaved(10)
+			.setMaxIndex(MAX_VIDEO_INDEX)
+			.setMaxSegmentsSaved(MAX_SEGMENTS)
 			.setPreload(5)
 			.setSegmentLength(5);
 
-	private final static String _logDirectory = "log/";
-	private final static String _setupFileName = "setup.txt";
+
 	private static DisplayFrame _display;
 	private static S3Uploader _s3;
-	private static SharedQueue<String> _stream;
+	private static SharedQueue<VideoSegment> _videoStream;
+	private static SharedQueue<byte[]> _indexStream;
 	private static SharedQueue<String> _signalQueue;
 	private static PerformanceLogger _logger;
-	private LinkedList<VideoObject> _segmentCollection = new LinkedList<>();
+
+	private Point _timeStampLocation;
 
 	public ICCRunner(){	
 		super();
 		className = "ICC Runner";
-		_stream = new SharedQueue<>(_setup.getMaxSegments() + 1);
+		metadata = new ICCMetadata(MAX_SEGMENTS, MAX_VIDEO_INDEX);
+		_videoStream = new SharedQueue<>(_setup.getMaxSegments() + 1);
+		_indexStream = new SharedQueue<>(10);
 		_signalQueue = new SharedQueue<>(100);
 	}
 
@@ -61,11 +69,12 @@ public class ICCRunner extends VideoSource {
 
 		ICCRunner iccr = new ICCRunner();
 
-		initDisplay(iccr);
+		initDisplay();
 		initUploader();
 		initLogging();
 
-		System.out.println(_signalQueue.dequeue());//wait for s3 to load
+		//prints message when S3 has been initialized
+		System.out.println(_signalQueue.dequeue());
 
 		sendSetupFile(_logger.getStartTime());
 
@@ -82,16 +91,20 @@ public class ICCRunner extends VideoSource {
 		boolean preloaded = false,
 				startDeleting = false;
 		double timeStarted;
-		String outputfilename = _setup.getFileName(currentSegment);		
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ICCFrameWriter segmentWriter = new ICCFrameWriter(mat, output);
 		VideoCapture grabber = null;
-		VideoWriter recorder = null;
+		VideoSegment segment = null;
+		metadata.setStartTime(_logger.getStartTime());
+		segmentWriter.setFrames(segmentLength);
 
 		try{
 			grabber = _setup.getVideoCapture();
-			recorder = _setup.getVideoWriter(0);
+//			_timeStampLocation = new Point(_setup.getWidth()-10,_setup.getHeight()-20);
+			_timeStampLocation = new Point(10, 20);
 		}
 		catch(Exception e){
-			System.err.println(e);
+			System.err.println("ERROR 100");
 			System.exit(-1);
 		}
 
@@ -105,20 +118,34 @@ public class ICCRunner extends VideoSource {
 					Utility.pause(15);
 					continue;
 				}
+				Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
 				Imgproc.putText(mat, getTime(),
-						new Point(mat.cols()-30,mat.rows()-12),
-						Core.FONT_HERSHEY_PLAIN, 0.5, new Scalar(255));
-				recorder.write(mat);
+						_timeStampLocation,
+						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(255));
+
+				_display.setCurrentFrame(this.getCurrentFrame());
+				segmentWriter.write();
 				frameCount++;
 
-				//check end of current video segment
+				//loops until...				
+				//end of current video segment
 				if(frameCount >= segmentLength){
-					sendSegmentToS3(recorder, outputfilename);
+					segment = new VideoSegment(currentSegment, segmentWriter.getFrames(),
+							output.toByteArray());
+
+					sendSegmentToS3(segment);
 					logSegment(timeStarted);
+					metadata.update(segment);
+					updateIndex();
 
-					timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+					//DEGUB
+//					segmentWriter.exportToFile(currentSegment);
+//					metadata.exportToFile();
 
-					//setup preloaded segments
+					/*setup preloaded segments:
+					 *first video segment stays zero until a certain number of rounds
+					 *specified in _setup-Preload
+					 */
 					if(preloaded){
 						oldestSegment = ++oldestSegment % _setup.getMaxSegments();
 					}
@@ -126,11 +153,9 @@ public class ICCRunner extends VideoSource {
 						preloaded = true;
 					}
 
-					//write to index file
-					incrementSegmentCollection(currentSegment);
-					writePlaylist(oldestSegment, currentSegment);
-
-					//delete old video segments
+					/*delete old video segments:
+					 *removes the nth video behind based on _setup-MaxSegmentsSaved
+					 */
 					if(startDeleting){
 						deleteOldSegments(currentSegment);
 					}
@@ -140,19 +165,21 @@ public class ICCRunner extends VideoSource {
 
 					//start new recording
 					currentSegment = incrementVideoSegment(currentSegment);
-					outputfilename = _setup.getFileName(currentSegment);
-					recorder = _setup.getVideoWriter(currentSegment);
-					//reset frame count
+					segmentWriter.reset();
 					frameCount = 0;
+					timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 				}
-				Utility.pause(delay);
-
+				Utility.pause(delay);//typically works better than not doing so, but the time
+									//difference vs FPS and actual require further research
 			}//end try
 			catch (Exception e) {
+				if(e.getMessage().equals("closed")){
+					break;
+				}
 				e.printStackTrace();
 			}
 		}//end while
-		closeEverything(grabber, recorder);
+		closeEverything(grabber, segmentWriter);
 		System.out.println("Runner successfully closed");
 	}
 
@@ -164,38 +191,36 @@ public class ICCRunner extends VideoSource {
 		if(deleteSegment < 0){//when current video segment id starts back at 0
 			deleteSegment += _setup.getMaxSegments();
 		}
-		String toDelete = _setup.getFileName(deleteSegment);
-		ICCCleaner cleaner = new ICCCleaner(_s3, toDelete, _setup.VIDEO_FOLDER);
+		ICCCleaner cleaner = new ICCCleaner(_s3, VideoSegment.toString(deleteSegment));
 		cleaner.start();
 	}
-	
+
 	// end() used to end thread
 	public void end(){
 		isDone = true;
 		System.out.println("Attempting to close runner...");
 	}
-	
-	// used by FrameDisplay to get current video image
-	public Image getCurrentFrame() throws NullPointerException {
+
+	private Image getCurrentFrame() throws NullPointerException {
 		int w = mat.cols(),
-				h = mat.rows();
+			h = mat.rows();
 		byte[] dat = new byte[w * h * mat.channels()];
-		
+
 		BufferedImage img = new BufferedImage(w, h, 
-				BufferedImage.TYPE_3BYTE_BGR);
-		
+				BufferedImage.TYPE_BYTE_GRAY);
+
 		mat.get(0, 0, dat);
 		img.getRaster().setDataElements(0, 0, 
 				mat.cols(), mat.rows(), dat);
 		return img;
 	}
-	
+
 	//-------------------------------------------------------------------------
 	//Private static methods
 	
-	private static void initDisplay(ICCRunner iccr){
+	private static void initDisplay(){
 		try{
-			_display = new DisplayFrame("Instant Cloud Camera", iccr);
+			_display = new DisplayFrame("Instant Cloud Camera");
 			_display.setVisible(true);
 		} catch (Exception e) {
 			System.err.println("ICCR: Failed to open display!");;
@@ -213,8 +238,8 @@ public class ICCRunner extends VideoSource {
 		PerformanceLogger s3logger = null;
 		
 		try{
-			s3logger = new PerformanceLogger(s3loggerFilename, _logDirectory);
-			_logger = new PerformanceLogger(loggerFilename, _logDirectory);
+			s3logger = new PerformanceLogger(s3loggerFilename, FileData.LOG_DIRECTORY.print());
+			_logger = new PerformanceLogger(loggerFilename, FileData.LOG_DIRECTORY.print());
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -224,17 +249,18 @@ public class ICCRunner extends VideoSource {
 	}
 	
 	private static void initUploader(){
-		_s3 = new S3Uploader(_setup.BUCKETNAME, _stream, _setup.VIDEO_FOLDER);
-		_s3.setIndexFile(_setup.INDEXFILE);
+		_s3 = new S3Uploader(_videoStream);
+		_s3.setIndexStream(_indexStream);
 		_s3.setSignal(_signalQueue);
 		_s3.start();
 	}
 	
-	private static void sendSetupFile(BigDecimal time){
+	private static void sendSetupFile(long time){
 		FileWriter fw = null;
+		String filename = FileData.SETUP_FILE.print();
 		try{
-			fw = new FileWriter(_setupFileName);
-			fw.write(time.toString() + "\n");
+			fw = new FileWriter(filename);
+			fw.write(Long.toString(time) + "\n");
 			fw.write(_setup.getCompressionRatio() + " ");
 			fw.write(_setup.getFPS() + " ");
 			fw.write(_setup.getSegmentLength() + "\n");
@@ -242,14 +268,14 @@ public class ICCRunner extends VideoSource {
 		} catch(IOException e){
 			System.err.println("ICCR: Unable to create setup file!");
 		}
-		_signalQueue.enqueue(_setupFileName);
+		_signalQueue.enqueue(filename);
 		_s3.interrupt();//s3 is waiting for setup file...
 	}
 	
 	private static void writeGNUPlotScript(String scriptfile, String runnerfile, String s3file){
 		int col1[] = {1, 2};
-		PlotObject runnerPlot = new PlotObject(new File(_logDirectory + runnerfile).getAbsolutePath(), "Video recorded", col1);
-		PlotObject s3Plot = new PlotObject(new File(_logDirectory + s3file).getAbsolutePath(), "Stream to S3", col1);
+		PlotObject runnerPlot = new PlotObject(new File(FileData.LOG_DIRECTORY.print() + runnerfile).getAbsolutePath(), "Video recorded", col1);
+		PlotObject s3Plot = new PlotObject(new File(FileData.LOG_DIRECTORY.print() + s3file).getAbsolutePath(), "Stream to S3", col1);
 		GNUScriptParameters params = new GNUScriptParameters("ICC");
 		params.addElement("CompressionRatio(" + _setup.getCompressionRatio() + ")");
 		params.addElement("FPS(" + _setup.getFPS() + ")");
@@ -271,13 +297,13 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Private non-static methods
 	
-	private void closeEverything(VideoCapture grabber, VideoWriter recorder){
+	private void closeEverything(VideoCapture grabber, ICCFrameWriter segmentWriter){
 		try{
 			_logger.close();
 			_signalQueue.enqueue(_logger.getFileName());
 			_signalQueue.enqueue(_logger.getFilePath());
 			grabber.release();
-			recorder.release();
+			segmentWriter.close();
 		} catch(Exception e){
 			System.err.println(e);
 		}
@@ -286,13 +312,6 @@ public class ICCRunner extends VideoSource {
 	private String getTime(){
 		DecimalFormat formatter = new DecimalFormat("#.00");
 		return formatter.format((System.currentTimeMillis() - _logger.getTime())/1000);
-	}
-	
-	private void incrementSegmentCollection(int currentSegment){
-		_segmentCollection.addFirst(new VideoObject(Integer.toString(currentSegment)));
-		if(_segmentCollection.size() > _setup.getMaxSegmentsSaved()){
-			_segmentCollection.removeLast();
-		}
 	}
 
 	private int incrementVideoSegment(int videoSegment){
@@ -313,21 +332,19 @@ public class ICCRunner extends VideoSource {
 		}
 	}
 
-	//Closes recording _stream and places filename in the queue for s3
-	private void sendSegmentToS3(VideoWriter recorder, String outputfilename){
-		recorder.release();
-		System.out.println("ICCR: Finished writing: " + outputfilename);
-		_stream.enqueue(outputfilename);
+	private void sendSegmentToS3(VideoSegment video){
+//		System.out.println("ICCR: Finished writing: " + fout);
+		_videoStream.enqueue(video);
 	}
 
-	private void writePlaylist(int oldestSegment, int currentSegment){
-		IndexWriter iwriter = new IndexWriter(_stream, oldestSegment,
-				currentSegment, _setup.getMaxSegments(), _setup.VIDEO_FOLDER, _setup.INDEXFILE);
-		iwriter.setCollection(_segmentCollection);
-		iwriter.setTime(_logger.getTime());
-		Thread ithread = new Thread(iwriter);
-
-		ithread.start();
+	private void updateIndex(){
+		new Thread() {
+			public void run(){
+				byte[] data = metadata.toString().getBytes();
+				_indexStream.enqueue(data);
+			}
+		}.start();
+		System.out.println("Playlist ready to be written...");
 	}
 }
 

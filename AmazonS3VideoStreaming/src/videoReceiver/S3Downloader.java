@@ -1,17 +1,17 @@
 package videoReceiver;
 
 import videoUtility.Utility;
-import videoUtility.VideoObject;
+import videoUtility.VideoSegment;
+import videoUtility.FileData;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
+import java.util.Scanner;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -23,29 +23,21 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
 public class S3Downloader extends S3UserStream {
 
-	private final String VIDEO_FOLDER = "videos/";
-	private final String INDEXFILE = "StreamIndex.txt";
-	private final String SETUPFILE = "setup.txt";
-	
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
 	private SharedQueue<String> _signalQueue;
-	private StreamIndexParser parser;
-	private String output;
-	private String prefix;
+	private PlaylistParser parser;
 	private VideoStream stream;
 
 	//-------------------------------------------------------------------------
 	//Constructor method
 	
-	public S3Downloader(String bucket, String prefix, String output, VideoStream stream) {
-		super(bucket);
-		this.output = output;
+	public S3Downloader(VideoStream stream) {
 		this.stream = stream;
-		this.prefix = prefix;
 	}
 
 	//-------------------------------------------------------------------------
@@ -53,6 +45,15 @@ public class S3Downloader extends S3UserStream {
 	
 	@Override
 	public void run() {
+		byte[] videoData = null;
+		double currTimeStamp = 0;
+		int currIndex, lastIndex = -1;
+		int[] currFrameOrder = null;
+		String playlist = FileData.INDEXFILE.print();
+		String prefix = FileData.VIDEO_PREFIX.print();
+		String suffix = FileData.VIDEO_SUFFIX.print();
+		VideoSegment videoSegment = null;
+		
 		Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
 		/*
 		 * The ProfileCredentialsProvider will return your [default] credential
@@ -85,11 +86,7 @@ public class S3Downloader extends S3UserStream {
 		//Retrieve the setup file
 		try{
 			parseSetupFile();
-			String tmpI = VIDEO_FOLDER + INDEXFILE + ".tmp";
-			File indexTmp = new File(tmpI);
-			if(indexTmp.exists()){
-				indexTmp.delete();
-			}
+			
 			synchronized(this){
 				String str = null;
 				while(str == null){
@@ -111,9 +108,10 @@ public class S3Downloader extends S3UserStream {
 		while(parser == null) {
 			try {	            
 				System.out.println("\nAttempting to obtain playlist...");
-				parser = new StreamIndexParser(prefix, getTemporaryFile(INDEXFILE));
+				parser = new PlaylistParser(getFileData(FileData.INDEXFILE.print()));
 			} catch (IOException e) {
 				System.err.println("Failed to retrieve playlist!");
+				e.printStackTrace();
 				Utility.pause(100);
 				continue;
 			}
@@ -123,16 +121,21 @@ public class S3Downloader extends S3UserStream {
 		//---------------------------------------------------------------------
 		//Get video stream
 
-		double currTimeStamp = 0;
-		File videoFile = null;
-		VideoObject videoSegment = null;
 		System.out.println("Obtaining videostream from S3...\n");
+		parser.setCurrentIndex(-2);
 
 		while (!isDone) {
 			try{
-				key = parser.parse(getTemporaryFile(INDEXFILE));
-				currTimeStamp = parser.currentTimeStamp();
-				videoFile = getTemporaryFile(key);
+				parser.update(getFileData(playlist));
+				currIndex = parser.getCurrentIndex();
+				if(currIndex == lastIndex){
+					Utility.pause(100);
+					continue;
+				}
+				currTimeStamp = parser.getCurrentTimeStamp();
+				currFrameOrder = parser.getCurrentFrameData();
+				key = prefix + currIndex + suffix;
+				videoData = getFileData(key);
 			} catch(IOException ioe){
 				System.err.println("Failed to parse playlist!");
 				continue;
@@ -159,14 +162,15 @@ public class S3Downloader extends S3UserStream {
 
 			System.out.println("Downloading file: " + key);
 
-			videoSegment = new VideoObject(videoFile.getAbsolutePath()).setTimeStamp(currTimeStamp);
+			videoSegment = new VideoSegment(currIndex, currFrameOrder, videoData).setTimeStamp(currTimeStamp);
+
 			stream.add(videoSegment);
 
-    		if(!key.equals(INDEXFILE)){
-    			logDownload(currTimeStamp);
-    		}
+    		logDownload(currTimeStamp);
+    		
+    		lastIndex = currIndex;
 		}
-		closeEverything(videoFile);
+		closeEverything();
 
 		System.out.println("S3 Downloader successfully closed");
 	}
@@ -177,9 +181,6 @@ public class S3Downloader extends S3UserStream {
 	public void end() {
 		if(isDone) return;
 		System.out.println("Attempting to close S3 Downloader...");
-		while(!stream.isEmpty()){
-			stream.getFrame();
-		}
 		isDone = true;
 	}
 	
@@ -198,8 +199,7 @@ public class S3Downloader extends S3UserStream {
 	//-------------------------------------------------------------------------
 	//Private methods
 	
-	private void closeEverything(File lastTempFile){
-		deleteTempFiles(lastTempFile);
+	private void closeEverything(){
 		try{
 			_logger.close();
 		}catch(IOException e){
@@ -207,25 +207,13 @@ public class S3Downloader extends S3UserStream {
 		}
 	}
 	
-	//deletes the temporary video file and index file
-	private void deleteTempFiles(File videoFile){
-		try{
-			File toDelete = new File(VIDEO_FOLDER + INDEXFILE + ".tmp");
-			toDelete.delete();
-			videoFile.delete();
-		} catch(Exception e){
-			System.err.println("S3: There was an error deleting the temporary files");
-		}
-	}
-	
-	private File getSetupFile() throws IOException {
-		S3Object object = s3.getObject(new GetObjectRequest(bucketName, SETUPFILE));
+	private byte[] getSetupFile() throws IOException {
+		S3Object object = s3.getObject(new GetObjectRequest(bucketName, FileData.SETUP_FILE.print()));
 
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		byte[] buffer = new byte[instream.available()];
 
-		File setupFile = new File(String.format(output + "%s.tmp", key));
-		FileOutputStream outstream = new FileOutputStream(setupFile);
+		ByteArrayOutputStream outstream = new ByteArrayOutputStream();
 
 		int read = 0;
 		while ((read = instream.read(buffer)) > 0) {
@@ -235,31 +223,29 @@ public class S3Downloader extends S3UserStream {
 		instream.close();
 		outstream.close();
 
-		return setupFile;
+		return outstream.toByteArray();
 	}
 	
-	private File getTemporaryFile(String key) throws IOException {
-		if(key == null) throw new IOException("Null key");
+	private byte[] getFileData(String key) throws IOException {
+		if(key == null) { throw new IOException("Null key"); }
+
+		int alreadyRead = 0,
+			read,
+			size;
 		byte[] buffer;
-		File file = null;
-
 		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
+		S3ObjectInputStream inputStream = object.getObjectContent();
 
-		DataInputStream instream = new DataInputStream(object.getObjectContent());
-		buffer = new byte[instream.available()];
+		size = (int) object.getObjectMetadata().getContentLength();
+		buffer = new byte[size];
 
-		file = new File(String.format(output + "%s.tmp", key));
-		FileOutputStream outstream = new FileOutputStream(file);
-
-		int read = 0;
-		while ((read = instream.read(buffer)) > 0) {
-			outstream.write(buffer, 0, read);
+		while ((read = inputStream.read(buffer, alreadyRead, size)) > 0) {
+			alreadyRead += read;
 		}
 		
-		instream.close();
-		outstream.close();
-
-		return file;
+		inputStream.close();
+		
+		return buffer;
 	}
 
 	//logs time to send vs. time received
@@ -277,11 +263,14 @@ public class S3Downloader extends S3UserStream {
 	}
 	
 	private void parseSetupFile() throws IOException {
-		File setupFile = getSetupFile();
-		BufferedReader br = new BufferedReader(new FileReader(setupFile));
-		String startTimeMillis = br.readLine();
-		String[] specs = br.readLine().split(" ");
-		br.close();
+		byte[] data = getSetupFile();
+//		System.out.println("Data: " + data.length);
+		ByteArrayInputStream in = new ByteArrayInputStream(data);
+		Scanner sc = new Scanner(in);
+		String startTimeMillis = sc.nextLine();
+//		System.out.println("Start : " + startTimeMillis);
+		String[] specs = sc.nextLine().split(" ");
+		sc.close();
 		_signalQueue.enqueue(startTimeMillis);
 		_signalQueue.enqueue(specs[0]);
 		_signalQueue.enqueue(specs[1]);

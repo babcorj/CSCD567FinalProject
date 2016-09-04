@@ -1,5 +1,6 @@
 package videoSender;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -13,19 +14,20 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 
+import videoUtility.FileData;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
+import videoUtility.VideoSegment;
 
 public class S3Uploader extends S3UserStream {
 
-	private static String videoFolder;
-
 	private String key;
-	private String _indexFile;
-	private SharedQueue<String> _stream;
+	private SharedQueue<VideoSegment> _stream;
+	private SharedQueue<byte[]> _indexStream;
 	private SharedQueue<String> _signalQueue;
 	private AmazonS3 s3;
 	private PerformanceLogger _logger;
@@ -33,10 +35,8 @@ public class S3Uploader extends S3UserStream {
 	//-------------------------------------------------------------------------
 	//Constructor
 	
-	public S3Uploader(String bucket, SharedQueue<String> theque, String theVideoFolder){
-		super(bucket);
+	public S3Uploader(SharedQueue<VideoSegment> theque){
 		_stream = theque;
-		videoFolder = theVideoFolder;
 	}
 
 	//-------------------------------------------------------------------------
@@ -93,21 +93,23 @@ public class S3Uploader extends S3UserStream {
 		}
 
 		while(!isDone || !_stream.isEmpty()){
+			ObjectMetadata info = new ObjectMetadata();
+			VideoSegment segment;
+			
 			try { //start uploading video stream
 				double timeReceived = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-				key = _stream.dequeue();
+				segment = _stream.dequeue();
+				key = segment.getName();
+				info.setContentLength(segment.size());
+				System.out.println("Content length: " + info.getContentLength());
+//				info.setContentType("video/x-msvideo");
+				ByteArrayInputStream bin = new ByteArrayInputStream(segment.getData());
+				System.out.println("S3: Uploading file '" + key + "'");
+				s3.putObject(new PutObjectRequest(bucketName, key, bin, info));
 
-				try{
-					System.out.println("S3: Downloading file '" + key + "'");
-					File videoFile = loadVideoFile(key);
-					s3.putObject(new PutObjectRequest(bucketName, key, videoFile));
+				logUpload(timeReceived);
+				updateIndexFile();
 
-					if(!key.equals(_indexFile)){
-						logUpload(timeReceived);
-					}
-				} catch(IOException e) {
-					e.printStackTrace();
-				}
 				key = null;
 
 			} catch (AmazonServiceException ase) {
@@ -161,8 +163,8 @@ public class S3Uploader extends S3UserStream {
 		isDone = true;
 	}
 	
-	public void setIndexFile(String indexfile){
-		_indexFile = indexfile;
+	public void setIndexStream(SharedQueue<byte[]> indexStream){
+		_indexStream = indexStream;
 	}
 	
 	public void setLogger(PerformanceLogger logger){
@@ -172,7 +174,7 @@ public class S3Uploader extends S3UserStream {
 	public void setKey(String fout){
 		key = fout;
 	}
-
+	
 	public void setSignal(SharedQueue<String> signal){
 		_signalQueue = signal;
 	}
@@ -180,14 +182,6 @@ public class S3Uploader extends S3UserStream {
 	//-------------------------------------------------------------------------
 	//Private methods
 	
-	private File loadVideoFile(String fin) throws IOException {
-		File file = new File(videoFolder + fin);
-		if(!file.exists()){
-			throw new IOException("Cannot find file '" + fin + "'");
-		}
-		return file;
-	}
-
 	private void logUpload(double timeReceived){
 		_logger.logTime();
 
@@ -203,6 +197,16 @@ public class S3Uploader extends S3UserStream {
 		}
 	}
 
+	private void updateIndexFile() throws Exception {
+		byte[] data = _indexStream.dequeue();
+		ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
+		ObjectMetadata metadata = new ObjectMetadata();
+		metadata.setContentLength(data.length);
+		s3.putObject(new PutObjectRequest(bucketName,
+				FileData.INDEXFILE.print(), inputStream, metadata));
+		System.out.println("S3: Uploaded playlist!");
+	}
+
 	private void uploadLogFiles() throws IOException {
 		String runnerLog = _signalQueue.dequeue();
 		String runnerLogPath = _signalQueue.dequeue();
@@ -214,9 +218,11 @@ public class S3Uploader extends S3UserStream {
 	
 	private void uploadSetupFile(String setupfile){
 		try{
+			System.out.println("SETUP: " + setupfile);
 			s3.putObject(new PutObjectRequest(bucketName, setupfile, new File(setupfile)));
 		} catch(Exception e){
 			System.err.println("S3: Failed to upload setup file!");
+			e.printStackTrace();
 			System.exit(-1);
 		}
 	}
