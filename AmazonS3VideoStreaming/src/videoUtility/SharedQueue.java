@@ -91,5 +91,8 @@ public class SharedQueue<E> implements Iterable<E> {
 		public boolean hasNext(){
 			return _it.hasNext();
 		}
+		public void remove(){
+			throw new UnsupportedOperationException("Remove method not supported");
+		}
 	}
 }

@@ -106,7 +106,7 @@ public class ICCFrameWriter {
 	//-------------------------------------------------------------------------
 	
 	/**
-	 * 
+	 * @return	Returns the index positions of each frame.
 	 */
 	public int[] getFrames(){
 		return _frames;
@@ -162,7 +162,7 @@ public class ICCFrameWriter {
 	}
 
 	/**
-	 * Sets the file where the mat pixel values prints to.
+	 * Sets the file where the mat pixel values prints tvideoo.
 	 * 
 	 * @param file	Where the mat pixel values prints to.
 	 * @throws FileNotFoundException
