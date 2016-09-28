@@ -89,11 +89,13 @@ public class PlaylistParser {
 	public void update(byte[] data) throws IOException{
 		_data = data;
 		update();
+//		_curr = _maxIndex;
 	}
 
 	public void update(String filename) throws IOException{
 		parseFile(filename);
 		update();
+//		_curr = _maxIndex;
 	}
 	
 	
@@ -113,8 +115,7 @@ public class PlaylistParser {
 		parseSegmentOrder();
 		_curr = _maxIndex;
 		parseTimeStamp();
-		parseFrameData();
-		
+		parseFrameData();	
 	}
 	
 	private void parseFile(String filepath) throws IOException{

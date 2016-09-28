@@ -11,10 +11,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.Scanner;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
@@ -27,17 +30,17 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
 public class S3Downloader extends S3UserStream {
 
-	private AmazonS3 s3;
+	private AmazonS3 _s3;
 	private PerformanceLogger _logger;
 	private SharedQueue<String> _signalQueue;
-	private PlaylistParser parser;
-	private VideoStream stream;
+	private PlaylistParser _parser;
+	private VideoStream _stream;
 
 	//-------------------------------------------------------------------------
 	//Constructor method
 	
 	public S3Downloader(VideoStream stream) {
-		this.stream = stream;
+		_stream = stream;
 	}
 
 	//-------------------------------------------------------------------------
@@ -47,14 +50,13 @@ public class S3Downloader extends S3UserStream {
 	public void run() {
 		byte[] videoData = null;
 		double currTimeStamp = 0;
-		int currIndex, lastIndex = -1;
+		int currIndex, lastIndex;
 		int[] currFrameOrder = null;
 		String playlist = FileData.INDEXFILE.print();
 		String prefix = FileData.VIDEO_PREFIX.print();
 		String suffix = FileData.VIDEO_SUFFIX.print();
 		VideoSegment videoSegment = null;
 		
-		Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
 		/*
 		 * The ProfileCredentialsProvider will return your [default] credential
 		 * profile by reading from the credentials file located at
@@ -73,10 +75,16 @@ public class S3Downloader extends S3UserStream {
 					+ "location (/Users/username/.aws/credentials), and is in valid format.");
 			System.exit(-1);
 		}
-
-		s3 = new AmazonS3Client(credentials);
+		ClientConfiguration config = new ClientConfiguration();
+		config.setConnectionMaxIdleMillis(1000);
+		config.setConnectionTimeout(1000);
+		config.setConnectionTTL(1000);
+		config.setRequestTimeout(1000);
+		config.setClientExecutionTimeout(1000);
+		config.setSocketTimeout(1000);
+		_s3 = new AmazonS3Client(credentials, config);
 		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-		s3.setRegion(usWest2);
+		_s3.setRegion(usWest2);
 
 		System.out.println("===========================================");
 		System.out.println("Getting Started with Amazon S3");
@@ -104,11 +112,11 @@ public class S3Downloader extends S3UserStream {
 		//---------------------------------------------------------------------
 		//Retrieve the playlist
 
-		parser = null;
-		while(parser == null) {
-			try {	            
+		_parser = null;
+		while(_parser == null) {
+			try {
 				System.out.println("\nAttempting to obtain playlist...");
-				parser = new PlaylistParser(getFileData(FileData.INDEXFILE.print()));
+				_parser = new PlaylistParser(getFileData(FileData.INDEXFILE.print()));
 			} catch (IOException e) {
 				System.err.println("Failed to retrieve playlist!");
 				e.printStackTrace();
@@ -119,27 +127,36 @@ public class S3Downloader extends S3UserStream {
 		System.out.println("Playlist obtained!");
 
 		//---------------------------------------------------------------------
-		//Get video stream
-
+		//Get video _stream
+		
 		System.out.println("Obtaining videostream from S3...\n");
-		parser.setCurrentIndex(-2);
 
 		while (!isDone) {
 			try{
-				parser.update(getFileData(playlist));
-				currIndex = parser.getCurrentIndex();
+				lastIndex = _parser.getCurrentIndex();
+				_parser.update(getFileData(playlist));
+				currIndex = _parser.getCurrentIndex();
 				if(currIndex == lastIndex){
-					Utility.pause(100);
+//					System.out.println("Curr: " + currIndex + "\nLast: " + lastIndex);
+					Utility.pause(50);
 					continue;
 				}
-				currTimeStamp = parser.getCurrentTimeStamp();
-				currFrameOrder = parser.getCurrentFrameData();
+				currTimeStamp = _parser.getCurrentTimeStamp();
+				currFrameOrder = _parser.getCurrentFrameData();
 				key = prefix + currIndex + suffix;
+				System.out.println("Key: '" + key + "'\nFrameOrder: '" + currFrameOrder.length + "'");
 				videoData = getFileData(key);
+			} catch(SocketException se){
+				System.err.println(se.getMessage());
+				continue;
+			} catch(SocketTimeoutException ste){
+				System.err.println(ste.getLocalizedMessage());
+				continue;
 			} catch(IOException ioe){
-				System.err.println("Failed to parse playlist!");
+				System.err.println(ioe.getLocalizedMessage());
 				continue;
 			} catch(IndexOutOfBoundsException e){
+				System.err.println(e.getLocalizedMessage());
 				Utility.pause(100);
 				continue;
 			} catch (AmazonServiceException ase) {
@@ -158,17 +175,18 @@ public class S3Downloader extends S3UserStream {
 						+ "such as not being able to access the network.");
 				System.out.println("Error Message: " + ace.getMessage());
 				continue;
+			} catch (Exception e){
+				e.printStackTrace();
+				continue;
 			}
 
 			System.out.println("Downloading file: " + key);
 
 			videoSegment = new VideoSegment(currIndex, currFrameOrder, videoData).setTimeStamp(currTimeStamp);
 
-			stream.add(videoSegment);
+			_stream.add(videoSegment);
 
     		logDownload(currTimeStamp);
-    		
-    		lastIndex = currIndex;
 		}
 		closeEverything();
 
@@ -208,7 +226,7 @@ public class S3Downloader extends S3UserStream {
 	}
 	
 	private byte[] getSetupFile() throws IOException {
-		S3Object object = s3.getObject(new GetObjectRequest(bucketName, FileData.SETUP_FILE.print()));
+		S3Object object = _s3.getObject(new GetObjectRequest(bucketName, FileData.SETUP_FILE.print()));
 
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		byte[] buffer = new byte[instream.available()];
@@ -233,17 +251,29 @@ public class S3Downloader extends S3UserStream {
 			read,
 			size;
 		byte[] buffer;
-		S3Object object = s3.getObject(new GetObjectRequest(bucketName, key));
-		S3ObjectInputStream inputStream = object.getObjectContent();
+		S3Object object = null;
+		S3ObjectInputStream inputStream = null;
 
-		size = (int) object.getObjectMetadata().getContentLength();
-		buffer = new byte[size];
+		try{
+			GetObjectRequest request = new GetObjectRequest(bucketName, key);
+			while((object = _s3.getObject(request)) == null){
+				Utility.pause(50);
+			}
+			inputStream = object.getObjectContent();
+	
+			size = (int) object.getObjectMetadata().getContentLength();
+			buffer = new byte[size];
 
-		while ((read = inputStream.read(buffer, alreadyRead, size)) > 0) {
-			alreadyRead += read;
+			while ((read = inputStream.read(buffer, alreadyRead, size)) > 0) {
+				alreadyRead += read;
+			}
+			
+			inputStream.close();
+			
+		} catch (SocketTimeoutException e){
+			inputStream.abort();
+			throw new SocketTimeoutException("S3 read timeout for file: " + key);
 		}
-		
-		inputStream.close();
 		
 		return buffer;
 	}
@@ -275,26 +305,5 @@ public class S3Downloader extends S3UserStream {
 		_signalQueue.enqueue(specs[0]);
 		_signalQueue.enqueue(specs[1]);
 		_signalQueue.enqueue(specs[2]);
-	}
-}
-
-//-----------------------------------------------------------------------------
-//Shutdown Hook
-
-class S3DownloaderShutdownHook extends Thread {
-	private S3Downloader _downloader;
-
-	public S3DownloaderShutdownHook(S3Downloader downloader){
-		_downloader = downloader;
-	}
-
-	public void run(){
-		_downloader.end();
-		try {
-			_downloader.interrupt();
-			_downloader.join();
-		} catch (InterruptedException e) {
-			System.err.println(e);
-		}
 	}
 }

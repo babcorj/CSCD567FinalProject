@@ -71,7 +71,7 @@ public class VideoPlayer extends VideoSource {
 	
 	@Override
 	public void run() {
-		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
+		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this, downloader));
 		
 		double fps = Double.parseDouble(_specs[1]);
 		long startTime = System.currentTimeMillis();
@@ -85,6 +85,7 @@ public class VideoPlayer extends VideoSource {
 
 			try {
 				videoSegment = stream.getFrame();
+//				System.out.println("FrameList: " + videoSegment.size());
 				logDelay(videoSegment);
 				frameList = videoSegment.getImageList();
 
@@ -210,16 +211,21 @@ public class VideoPlayer extends VideoSource {
 
 class VideoPlayerShutdownHook extends Thread {
 	private VideoPlayer _player;
+	private S3Downloader _downloader;
 	
-	public VideoPlayerShutdownHook(VideoPlayer player){
+	public VideoPlayerShutdownHook(VideoPlayer player, S3Downloader s3downloader){
 		_player = player;
+		_downloader = s3downloader;
 	}
 	
 	public void run(){
 		_player.end();
+		_downloader.end();
 		try {
 			_player.interrupt();
 			_player.join();
+			_downloader.interrupt();
+			_downloader.join();
 		} catch (InterruptedException e) {
 			System.err.println(e);
 		}
