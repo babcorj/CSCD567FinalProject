@@ -72,7 +72,7 @@ public class ICCRunner extends VideoSource {
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
 			.setPreload(5)
-			.setSegmentLength(5);
+			.setSegmentLength(5);//in seconds
 
 	//-------------------------------------------------------------------------
 	//Private static variables
@@ -96,10 +96,11 @@ public class ICCRunner extends VideoSource {
 	public ICCRunner(){	
 		super();
 		_className = "ICC Runner";
+		_mat = new Mat();
 		_metadata = new ICCMetadata(_setup.getPreload(), MAX_VIDEO_INDEX);
-		_videoStream = new SharedQueue<>(_setup.getMaxSegments() + 1);
 		_indexStream = new SharedQueue<>(10);
 		_signalQueue = new SharedQueue<>(100);
+		_videoStream = new SharedQueue<>(_setup.getMaxSegments() + 1);
 	}
 
 	//-------------------------------------------------------------------------
@@ -154,7 +155,7 @@ public class ICCRunner extends VideoSource {
 			_timeStampLocation = new Point(10, 20);
 		}
 		catch(Exception e){
-			System.err.println("ERROR 100");
+			System.err.println("ERROR 100: Failed to open recording device");
 			System.exit(-1);
 		}
 
@@ -456,7 +457,7 @@ public class ICCRunner extends VideoSource {
 				_indexStream.enqueue(data);
 			}
 		}.start();
-		System.out.println("Playlist ready to be written...");
+		System.out.println("ICC: Playlist ready");
 	}
 }
 

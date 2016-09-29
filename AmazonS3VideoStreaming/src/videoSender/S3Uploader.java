@@ -112,11 +112,11 @@ public class S3Uploader extends S3UserStream {
 				segment = _stream.dequeue();
 				_key = segment.getName();
 				info.setContentLength(segment.size());
-				System.out.println("Content length: " + info.getContentLength());
 				ByteArrayInputStream bin = new ByteArrayInputStream(segment.getData());
-				System.out.println("S3: Uploading file '" + _key + "'");
-				uploadStream(_transferMGMT, bin, _key, segment.size());
 				
+				System.out.println("S3: Uploading file '" + _key + "'...");
+				
+				uploadStream(_transferMGMT, bin, _key, segment.size());
 				logUpload(timeReceived);
 				updateIndexFile(_transferMGMT);
 
@@ -178,7 +178,7 @@ public class S3Uploader extends S3UserStream {
 		} catch(Exception e){
 			e.printStackTrace();
 		}
-		System.out.println("Successfully deleted '"+file+"' from S3");
+		System.out.println("S3: Successfully deleted '"+file+"' from '" + _bucketName + "'");
 	}
 	
 	/**
@@ -231,7 +231,7 @@ public class S3Uploader extends S3UserStream {
 		while(!upload.isDone()){
 			Utility.pause(10);
 		}
-		System.out.println("S3: Uploaded playlist!");
+		System.out.println("S3: Playlist uploaded");
 	}
 	
 	/**
@@ -286,7 +286,7 @@ public class S3Uploader extends S3UserStream {
 		while(!upload.isDone()){
 			Utility.pause(10);
 		}
-		System.out.println("Finished Uploading: " + key);
+		System.out.println("S3: Uploaded: '" + key + "'");
 	}
 }
 
