@@ -25,24 +25,40 @@ import GNUPlot.GNUScriptWriter;
 import GNUPlot.PlotObject;
 import videoUtility.PerformanceLogger;
 
+/**
+ * 
+ * @author Ryan Babcock
+ * 
+ * This class represents the client-side of the ICC. The S3Downloader grabs
+ * the most recent video specified by the playlist stored in the S3 bucket.
+ * The S3Downloader creates a video segment based on the video data and the
+ * information within the playlist. The video segment is then sent to the
+ * VideoPlayer where the video is displayed using the ICCFrameReader.
+ * 
+ * @version v.0.0.20
+ * @see VideoSource, S3Downloader, PlaylistParser, ICCFrameReader
+ *
+ */
 public class VideoPlayer extends VideoSource {
 
+	//-------------------------------------------------------------------------
+	//Member Variables
+	//-------------------------------------------------------------------------
 	private static DisplayFrame _display;
 	private static List<Double> _records;
 	private static PerformanceLogger _logger;
 	private static S3Downloader downloader;
 	private static SharedQueue<String> _signalQueue;
-	private static String[] _specs = new String[3];//for GNUPlot:
-	//1=Compression, 2=FPS, 3= SegmentLength; taken from setup file on s3
-	
+	private static String[] _specs = new String[3];
+	//_specs: 0=Compression, 1=FPS, 2=SegmentLength; from setup file on S3
 	private VideoStream stream;
 
 	//-------------------------------------------------------------------------
-	//Constructor method
-	
+	//Constructor
+	//-------------------------------------------------------------------------
 	public VideoPlayer() {
 		super();
-		className = "ICC VideoPlayer";
+		_className = "ICC VideoPlayer";
 		_records = new ArrayList<>();
 		stream = new VideoStream();
 		downloader = new S3Downloader(stream);
@@ -53,7 +69,7 @@ public class VideoPlayer extends VideoSource {
 
 	//-------------------------------------------------------------------------
 	//Main
-	
+	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
 		
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -68,24 +84,23 @@ public class VideoPlayer extends VideoSource {
 
 	//-------------------------------------------------------------------------
 	//Run method
-	
+	//-------------------------------------------------------------------------
 	@Override
 	public void run() {
-		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this, downloader));
-		
+		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
+
 		double fps = Double.parseDouble(_specs[1]);
-		long startTime = System.currentTimeMillis();
 		LinkedList<BufferedImage> frameList;
 		VideoSegment videoSegment = null;
 
 		System.out.println("Starting video player...");
 
-		while (!isDone) {
-			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
+		//isDone becomes false when "end()" function is called
+		while (!_isDone) {
+//			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
 
 			try {
 				videoSegment = stream.getFrame();
-//				System.out.println("FrameList: " + videoSegment.size());
 				logDelay(videoSegment);
 				frameList = videoSegment.getImageList();
 
@@ -94,7 +109,7 @@ public class VideoPlayer extends VideoSource {
 					Utility.pause((long)(1000/fps));
 				}
 			} catch (Exception e) {
-				if(isDone) continue;
+				if(_isDone) continue;
 				System.err.println("VP: Problem reading video file: " + videoSegment.getName());
 			}
 		}
@@ -105,7 +120,11 @@ public class VideoPlayer extends VideoSource {
 
 	//-------------------------------------------------------------------------
 	//Private static methods
-	
+	//-------------------------------------------------------------------------
+	/**
+	 * Initializes the display.
+	 * @see FrameDisplay
+	 */
 	private static void initDisplay(){
 		_display = null;
 
@@ -123,6 +142,11 @@ public class VideoPlayer extends VideoSource {
 		System.out.println("Display initiated...");
 	}
 
+	/**
+	 * Initializes logging used by GNUplot. Sends a PerformanceLogger to the
+	 * S3Downloader since both require the same startup time.
+	 * @see PerformanceLogger
+	 */
 	private static void initLogger(){
 		String  plog 		= FileData.PLAYER_LOG.print(),
 				logFolder 	= FileData.LOG_DIRECTORY.print(),
@@ -149,6 +173,14 @@ public class VideoPlayer extends VideoSource {
 		downloader.interrupt();
 	}
 
+	/**
+	 * Creates script based on logged data. Runnable by GNUplot.
+	 * 
+	 * @param scriptfile	The name of the script file.
+	 * @param playerfile	The name of the video player log file.
+	 * @param s3file		The name of the S3 downloader log file.
+	 * @see PerformanceLogger, GNUScriptParameters, GNUScriptWriter
+	 */
 	private static void writeGNUPlotScript(String scriptfile, String playerfile, String s3file){
 		_specs[0] = _signalQueue.dequeue();//compression
 		_specs[1] = _signalQueue.dequeue();//FPS
@@ -178,7 +210,10 @@ public class VideoPlayer extends VideoSource {
 	
 	//-------------------------------------------------------------------------
 	//Private non-static methods
-	
+	//-------------------------------------------------------------------------
+	/**
+	 * Closes all closeable instances created.
+	 */
 	private void closeEverything(){
 		double avg = Calculate.average(_records);
 		try {
@@ -190,7 +225,10 @@ public class VideoPlayer extends VideoSource {
 		}
 	}
 	
-	//log time sent vs. time received
+	/**
+	 * Logs the time the video was sent versus the time the video was received.
+	 * @param videoSegment	The video segment to be played.
+	 */
 	private void logDelay(VideoSegment videoSegment){
 		double timeOut = (System.currentTimeMillis() - _logger.getTime())/1000
 				- videoSegment.getTimeStamp();
@@ -208,24 +246,19 @@ public class VideoPlayer extends VideoSource {
 
 //-----------------------------------------------------------------------------
 //Shutdown Hook
-
+//-------------------------------------------------------------------------
 class VideoPlayerShutdownHook extends Thread {
 	private VideoPlayer _player;
-	private S3Downloader _downloader;
 	
-	public VideoPlayerShutdownHook(VideoPlayer player, S3Downloader s3downloader){
+	public VideoPlayerShutdownHook(VideoPlayer player){
 		_player = player;
-		_downloader = s3downloader;
 	}
 	
 	public void run(){
 		_player.end();
-		_downloader.end();
 		try {
 			_player.interrupt();
 			_player.join();
-			_downloader.interrupt();
-			_downloader.join();
 		} catch (InterruptedException e) {
 			System.err.println(e);
 		}

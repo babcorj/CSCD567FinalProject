@@ -1,9 +1,11 @@
 package videoUtility;
 
 /**
- * Contains universal data
- * @author ryanj
  *
+ * @author Ryan Babcock
+ *
+ * Contains universal data that is used in this project.
+ * 
  */
 
 public enum FileData {

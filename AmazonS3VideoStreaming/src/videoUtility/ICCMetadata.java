@@ -5,13 +5,10 @@ import java.io.IOException;
 //import java.io.IOException;
 import java.text.DecimalFormat;
 
-//import videoReceiver.PlaylistParser;
-
 /**
+ * 
  * @author	Ryan Babcock
- **/
-
-/*
+ * 
  * ICCMetadata is a datastructure used by the videoUtility package within the
  * ICCProject. This class provides a datastructure focused on IO operations
  * for the playlist. It holds information about the current videos available

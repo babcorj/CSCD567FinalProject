@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 
 import org.opencv.core.Core;
+import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
@@ -37,7 +38,7 @@ import GNUPlot.PlotObject;
  * jpg image, and then saves that image to a byte array. After a certain
  * amount of images are saved, the byte array (now resembling a video) is
  * stored into an input stream and then uploaded to Amazon S3.
- * 
+ * <p>
  * This version uses a playlist to save all necessary information about the
  * current videos being saved to Amazon S3. The benefit is that the 
  * VideoPlayer knows which video is most current, how many videos there are,
@@ -86,6 +87,7 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Private variables
 	//-------------------------------------------------------------------------
+	private Mat _mat;
 	private Point _timeStampLocation;
 
 	//-------------------------------------------------------------------------
@@ -93,8 +95,8 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	public ICCRunner(){	
 		super();
-		className = "ICC Runner";
-		metadata = new ICCMetadata(_setup.getPreload(), MAX_VIDEO_INDEX);
+		_className = "ICC Runner";
+		_metadata = new ICCMetadata(_setup.getPreload(), MAX_VIDEO_INDEX);
 		_videoStream = new SharedQueue<>(_setup.getMaxSegments() + 1);
 		_indexStream = new SharedQueue<>(10);
 		_signalQueue = new SharedQueue<>(100);
@@ -140,11 +142,11 @@ public class ICCRunner extends VideoSource {
 				startDeleting = false;
 		double timeStarted;
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
-		ICCFrameWriter segmentWriter = new ICCFrameWriter(mat, output);
+		ICCFrameWriter segmentWriter = new ICCFrameWriter(_mat, output);
 		VideoCapture grabber = null;
 		VideoSegment segment = null;
 		
-		metadata.setStartTime(_logger.getStartTime());
+		_metadata.setStartTime(_logger.getStartTime());
 		segmentWriter.setFrames(segmentLength);
 
 		try{
@@ -159,15 +161,15 @@ public class ICCRunner extends VideoSource {
 		timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 
 		//isDone becomes false when "end()" function is called
-		while (!isDone) {
+		while (!_isDone) {
 			try {
 				//capture and record video
-				if (!grabber.read(mat)) {
+				if (!grabber.read(_mat)) {
 					Utility.pause(15);
 					continue;
 				}
-				Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-				Imgproc.putText(mat, getTime(),
+				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
+				Imgproc.putText(_mat, getTime(),
 						_timeStampLocation,
 						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(255));
 
@@ -182,7 +184,7 @@ public class ICCRunner extends VideoSource {
 
 					sendSegmentToS3(segment);
 					logSegment(timeStarted);
-					metadata.update(segment);
+					_metadata.update(segment);
 					updateIndex();
 
 					/* setup preloaded segments:
@@ -244,7 +246,8 @@ public class ICCRunner extends VideoSource {
 	 * Used to end current ICCRunner thread.
 	 */
 	public void end(){
-		isDone = true;
+		if(_isDone) return;
+		_isDone = true;
 		System.out.println("Attempting to close runner...");
 	}
 
@@ -366,16 +369,16 @@ public class ICCRunner extends VideoSource {
 	 * @see DisplayFrame
 	 */
 	private Image getCurrentFrame() throws NullPointerException {
-		int w = mat.cols(),
-			h = mat.rows();
-		byte[] dat = new byte[w * h * mat.channels()];
+		int w = _mat.cols(),
+			h = _mat.rows();
+		byte[] dat = new byte[w * h * _mat.channels()];
 
 		BufferedImage img = new BufferedImage(w, h, 
 				BufferedImage.TYPE_BYTE_GRAY);
 
-		mat.get(0, 0, dat);
+		_mat.get(0, 0, dat);
 		img.getRaster().setDataElements(0, 0, 
-				mat.cols(), mat.rows(), dat);
+				_mat.cols(), _mat.rows(), dat);
 		return img;
 	}
 
@@ -449,7 +452,7 @@ public class ICCRunner extends VideoSource {
 	private void updateIndex(){
 		new Thread() {
 			public void run(){
-				byte[] data = metadata.toString().getBytes();
+				byte[] data = _metadata.toString().getBytes();
 				_indexStream.enqueue(data);
 			}
 		}.start();

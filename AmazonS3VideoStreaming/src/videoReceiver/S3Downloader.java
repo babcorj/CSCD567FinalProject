@@ -28,6 +28,19 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
+/**
+ * 
+ * @author Ryan Babcock
+ * 
+ * This class downloads the setup file, playlist file, and video segments
+ * created by the ICCRunner. These are then sent to the video player to
+ * be watched by the client.
+ * 
+ * @version v.0.0.20
+ * @see VideoPlayer, ICCRunner, S3Uploader
+ *
+ */
+
 public class S3Downloader extends S3UserStream {
 
 	private AmazonS3 _s3;
@@ -38,16 +51,28 @@ public class S3Downloader extends S3UserStream {
 
 	//-------------------------------------------------------------------------
 	//Constructor method
-	
+	//-------------------------------------------------------------------------
 	public S3Downloader(VideoStream stream) {
 		_stream = stream;
 	}
 
 	//-------------------------------------------------------------------------
-	//Run method
+	//Set methods: All set methods must be called prior to run
+	//-------------------------------------------------------------------------
+	public void setPerformanceLog(PerformanceLogger perfLog){
+		_logger = perfLog;
+	}
+	public void setSignal(SharedQueue<String> signal){
+		_signalQueue = signal;
+	}
 	
+	//-------------------------------------------------------------------------
+	//Run method
+	//-------------------------------------------------------------------------
 	@Override
 	public void run() {
+		Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
+		
 		byte[] videoData = null;
 		double currTimeStamp = 0;
 		int currIndex, lastIndex;
@@ -63,9 +88,8 @@ public class S3Downloader extends S3UserStream {
 		 * (/Users/username/.aws/credentials).
 		 */
 
-		//---------------------------------------------------------------------
 		//Verify Amazon Credentials
-
+		//---------------------------------------------------------------------
 		AWSCredentials credentials = null;
 		try {
 			credentials = new ProfileCredentialsProvider("default").getCredentials();
@@ -90,8 +114,8 @@ public class S3Downloader extends S3UserStream {
 		System.out.println("Getting Started with Amazon S3");
 		System.out.println("===========================================\n");
 
-		//---------------------------------------------------------------------
 		//Retrieve the setup file
+		//---------------------------------------------------------------------		
 		try{
 			parseSetupFile();
 			
@@ -109,9 +133,8 @@ public class S3Downloader extends S3UserStream {
 			System.err.println("S3: Failed to retrieve setup file!");
 		}
 
-		//---------------------------------------------------------------------
 		//Retrieve the playlist
-
+		//---------------------------------------------------------------------
 		_parser = null;
 		while(_parser == null) {
 			try {
@@ -126,12 +149,11 @@ public class S3Downloader extends S3UserStream {
 		}
 		System.out.println("Playlist obtained!");
 
-		//---------------------------------------------------------------------
-		//Get video _stream
-		
+		//Gather and send video segments
+		//---------------------------------------------------------------------		
 		System.out.println("Obtaining videostream from S3...\n");
 
-		while (!isDone) {
+		while (!_isDone) {
 			try{
 				lastIndex = _parser.getCurrentIndex();
 				_parser.update(getFileData(playlist));
@@ -143,9 +165,10 @@ public class S3Downloader extends S3UserStream {
 				}
 				currTimeStamp = _parser.getCurrentTimeStamp();
 				currFrameOrder = _parser.getCurrentFrameData();
-				key = prefix + currIndex + suffix;
-				System.out.println("Key: '" + key + "'\nFrameOrder: '" + currFrameOrder.length + "'");
-				videoData = getFileData(key);
+				_key = prefix + currIndex + suffix;
+				System.out.println("Key: '" + _key + "'\nFrameOrder: '" + currFrameOrder.length + "'");
+				videoData = getFileData(_key);
+				
 			} catch(SocketException se){
 				System.err.println(se.getMessage());
 				continue;
@@ -167,7 +190,7 @@ public class S3Downloader extends S3UserStream {
 				System.out.println("AWS Error Code:   " + ase.getErrorCode());
 				System.out.println("Error Type:       " + ase.getErrorType());
 				System.out.println("Request ID:       " + ase.getRequestId());
-				System.out.println("Key:	           '" + key + "'");
+				System.out.println("Key:	           '" + _key + "'");
 				continue;
 			} catch (AmazonClientException ace) {
 				System.out.println("Caught an AmazonClientException, which means the client encountered "
@@ -180,12 +203,10 @@ public class S3Downloader extends S3UserStream {
 				continue;
 			}
 
-			System.out.println("Downloading file: " + key);
+			System.out.println("Downloading file: " + _key);
 
 			videoSegment = new VideoSegment(currIndex, currFrameOrder, videoData).setTimeStamp(currTimeStamp);
-
 			_stream.add(videoSegment);
-
     		logDownload(currTimeStamp);
 		}
 		closeEverything();
@@ -195,28 +216,22 @@ public class S3Downloader extends S3UserStream {
 
 	//-------------------------------------------------------------------------
 	//Public methods
-	
+	//-------------------------------------------------------------------------
+	/**
+	 * Ends the run method.
+	 */
 	public void end() {
-		if(isDone) return;
+		if(_isDone) return;
 		System.out.println("Attempting to close S3 Downloader...");
-		isDone = true;
+		_isDone = true;
 	}
 	
-	public void setKey(String fout) {
-		key = fout;
-	}
-	
-	public void setPerformanceLog(PerformanceLogger perfLog){
-		_logger = perfLog;
-	}
-	
-	public void setSignal(SharedQueue<String> signal){
-		_signalQueue = signal;
-	}
-
 	//-------------------------------------------------------------------------
 	//Private methods
-	
+	//-------------------------------------------------------------------------	
+	/**
+	 * Closes all closeable instances.
+	 */
 	private void closeEverything(){
 		try{
 			_logger.close();
@@ -225,8 +240,13 @@ public class S3Downloader extends S3UserStream {
 		}
 	}
 	
+	/**
+	 * Retrieves setup file from S3 bucket.
+	 * @return The data of the setup file.
+	 * @throws IOException
+	 */
 	private byte[] getSetupFile() throws IOException {
-		S3Object object = _s3.getObject(new GetObjectRequest(bucketName, FileData.SETUP_FILE.print()));
+		S3Object object = _s3.getObject(new GetObjectRequest(_bucketName, FileData.SETUP_FILE.print()));
 
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		byte[] buffer = new byte[instream.available()];
@@ -244,6 +264,12 @@ public class S3Downloader extends S3UserStream {
 		return outstream.toByteArray();
 	}
 	
+	/**
+	 * Retrieves the data located inside of the bucket indicated by key.
+	 * @param _key	The file to be retrieved from S3.
+	 * @return		The data of the file within S3.
+	 * @throws IOException
+	 */
 	private byte[] getFileData(String key) throws IOException {
 		if(key == null) { throw new IOException("Null key"); }
 
@@ -255,7 +281,7 @@ public class S3Downloader extends S3UserStream {
 		S3ObjectInputStream inputStream = null;
 
 		try{
-			GetObjectRequest request = new GetObjectRequest(bucketName, key);
+			GetObjectRequest request = new GetObjectRequest(_bucketName, key);
 			while((object = _s3.getObject(request)) == null){
 				Utility.pause(50);
 			}
@@ -272,13 +298,16 @@ public class S3Downloader extends S3UserStream {
 			
 		} catch (SocketTimeoutException e){
 			inputStream.abort();
-			throw new SocketTimeoutException("S3 read timeout for file: " + key);
+			throw new SocketTimeoutException("S3 read timeout for file: " + _key);
 		}
 		
 		return buffer;
 	}
 
-	//logs time to send vs. time received
+	/**
+	 * Logs the time the video was sent versus the time the video was received.
+	 * @param currTimeStamp	The timestamp of when the video was sent.
+	 */
 	private void logDownload(double currTimeStamp){
 		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
 		double lag = curRunTime - currTimeStamp;
@@ -292,18 +321,44 @@ public class S3Downloader extends S3UserStream {
 		}
 	}
 	
+	/**
+	 * Sends information from the setup file located in S3 bucket to the
+	 * video player.
+	 * @throws IOException
+	 * @see VideoPlayer
+	 */
 	private void parseSetupFile() throws IOException {
 		byte[] data = getSetupFile();
-//		System.out.println("Data: " + data.length);
 		ByteArrayInputStream in = new ByteArrayInputStream(data);
 		Scanner sc = new Scanner(in);
 		String startTimeMillis = sc.nextLine();
-//		System.out.println("Start : " + startTimeMillis);
 		String[] specs = sc.nextLine().split(" ");
 		sc.close();
+
 		_signalQueue.enqueue(startTimeMillis);
 		_signalQueue.enqueue(specs[0]);
 		_signalQueue.enqueue(specs[1]);
 		_signalQueue.enqueue(specs[2]);
+	}
+}
+
+//-----------------------------------------------------------------------------
+//Shutdown Hook
+//-------------------------------------------------------------------------
+class S3DownloaderShutdownHook extends Thread {
+	private S3Downloader _downloader;
+	
+	public S3DownloaderShutdownHook(S3Downloader downloader){
+		_downloader = downloader;
+	}
+	
+	public void run(){
+		_downloader.end();
+		try {
+			_downloader.interrupt();
+			_downloader.join();
+		} catch (InterruptedException e) {
+			System.err.println(e);
+		}
 	}
 }

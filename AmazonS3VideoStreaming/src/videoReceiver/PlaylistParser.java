@@ -9,9 +9,18 @@ import java.io.IOException;
 import java.util.Scanner;
 
 /**
- * Should take curr out of class
- * @author ryanj
+ * 
+ * @author Ryan Babcock
  *
+ * This class is used to parse the playlist stored in the S3 bucket. It is also
+ * used to track the most current video segment. This, however, creates too
+ * much burden on this class. If this were the model that would be used on the
+ * final product, this functionality would be removed. However, version v.0.0.3
+ * should not need a playlist or a playlist parser.
+ * 
+ * @version v.0.0.20
+ * @see S3Downloader
+ * 
  */
 public class PlaylistParser {
 	
