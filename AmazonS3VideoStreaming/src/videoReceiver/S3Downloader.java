@@ -83,6 +83,12 @@ public class S3Downloader extends S3UserStream {
 		VideoSegment videoSegment = null;
 		
 		/*
+		 * AWS IP occasionally changes. This will allow the application to receive
+		 * and use new IP without querying DNS again with TTL being 60 
+		 */
+		java.security.Security.setProperty("networkaddress.cache.ttl", "60");
+		
+		/*
 		 * The ProfileCredentialsProvider will return your [default] credential
 		 * profile by reading from the credentials file located at
 		 * (/Users/username/.aws/credentials).
@@ -166,7 +172,9 @@ public class S3Downloader extends S3UserStream {
 				currTimeStamp = _parser.getCurrentTimeStamp();
 				currFrameOrder = _parser.getCurrentFrameData();
 				_key = prefix + currIndex + suffix;
-				System.out.println("Key: '" + _key + "'\nFrameOrder: '" + currFrameOrder.length + "'");
+				
+				System.out.println("Downloading file: " + _key);
+				
 				videoData = getFileData(_key);
 				
 			} catch(SocketException se){
@@ -202,8 +210,6 @@ public class S3Downloader extends S3UserStream {
 				e.printStackTrace();
 				continue;
 			}
-
-			System.out.println("Downloading file: " + _key);
 
 			videoSegment = new VideoSegment(currIndex, currFrameOrder, videoData).setTimeStamp(currTimeStamp);
 			_stream.add(videoSegment);
