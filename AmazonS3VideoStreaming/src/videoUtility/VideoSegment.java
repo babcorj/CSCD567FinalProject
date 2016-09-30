@@ -8,47 +8,22 @@ public class VideoSegment {
 
 	private byte[] _data;
 	private int _index;
-	private int[] _frameOrder;
-	private double _timeStamp;
 	private LinkedList<BufferedImage> _imglist;
+	private VideoSegmentHeader _header;
 	
-	public VideoSegment(int index, int[] frameOrder, byte[] data) {
+	public VideoSegment(int index, byte[] data, VideoSegmentHeader header) {
 		_data = data;
-		_frameOrder = frameOrder;
 		_index = index;
-		_timeStamp = System.currentTimeMillis();
-	}
-
-	//-------------------------------------------------------------------------
-	//SET METHODS
-	//-------------------------------------------------------------------------
-	public VideoSegment setData(byte[] data){
-		_imglist = null;
-		_data = data;
-		return this;
-	}
-	public VideoSegment setIndex(int index){
-		_index = index;
-		return this;
-	}
-	public VideoSegment setFrameOrder(int[] frameOrder){
-		_imglist = null;
-		_frameOrder = frameOrder;
-		return this;
-	}
-	public VideoSegment setTimeStamp(double time){
-		_timeStamp = time;
-		return this;
+		_header = header;
+		_header.setStartTime(System.currentTimeMillis());
 	}
 
 	//-------------------------------------------------------------------------
 	//GET METHODS
 	//-------------------------------------------------------------------------
 	public byte[] getData(){
-		return _data;
-	}
-	public int[] getFrameOrder(){
-		return _frameOrder;
+		byte[] data = assembleData();
+		return data;
 	}
 	public LinkedList<BufferedImage> getImageList(){
 		if(_imglist == null){
@@ -60,13 +35,13 @@ public class VideoSegment {
 		return _index;
 	}
 	public double getTimeStamp(){
-		return _timeStamp;
+		return _header.getTimeStamp();
 	}
 	public String getName(){
 		return FileData.VIDEO_PREFIX.print() + _index + FileData.VIDEO_SUFFIX.print();
 	}
 	public long size(){
-		return _data.length;
+		return _data.length + _video.size();
 	}
 	
 	//-------------------------------------------------------------------------
@@ -79,11 +54,29 @@ public class VideoSegment {
 	//-------------------------------------------------------------------------
 	//PRIVATE METHODS
 	//-------------------------------------------------------------------------
+	private byte[] assembleData(){
+		byte[] headerData = _header.export();
+		byte[] data = new byte[headerData.length + _data.length];
+		int i = 0, j = 0, size = headerData.length;
+		//store header data
+		for(; i < size; i++){
+			data[i] = headerData[i];
+		}
+		
+		size = data.length;
+		//store video data
+		for(; i < size; i++, j++){
+			data[i] = _data[j];
+		}
+		
+		return data;
+	}
+
 	private LinkedList<BufferedImage> convertToImageList(){
 		LinkedList<BufferedImage> imglist = null;
 
 		try {
-			imglist = ICCFrameReader.readAll(_frameOrder, _data);
+			imglist = ICCFrameReader.readAll(_header.getFrameOrder(), _data);
 		} catch (IllegalArgumentException | IOException e) {
 			e.printStackTrace();
 		}

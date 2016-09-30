@@ -3,7 +3,7 @@ package videoSender;
 import videoUtility.VideoSource;
 import videoUtility.DisplayFrame;
 import videoUtility.FileData;
-import videoUtility.ICCMetadata;
+import videoUtility.VideoSegmentHeader;
 import videoUtility.ICCFrameWriter;
 import videoUtility.PerformanceLogger;
 import videoUtility.SharedQueue;
@@ -58,8 +58,8 @@ public class ICCRunner extends VideoSource {
 	 * 							can be saved to Amazon S3 (anything older is
 	 * 							deleted from the bucket).
 	 */
-	private final static int MAX_VIDEO_INDEX = 100;
-	private final static int MAX_SEGMENTS = 10;
+	private final static int MAX_VIDEO_INDEX = 10;
+	private final static int MAX_SEGMENTS = 5;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
@@ -71,7 +71,6 @@ public class ICCRunner extends VideoSource {
 			.setFPS(6)
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
-			.setPreload(5)
 			.setSegmentLength(5);//in seconds
 
 	//-------------------------------------------------------------------------
@@ -97,10 +96,10 @@ public class ICCRunner extends VideoSource {
 		super();
 		_className = "ICC Runner";
 		_mat = new Mat();
-		_metadata = new ICCMetadata(_setup.getPreload(), MAX_VIDEO_INDEX);
+		_metadata = new VideoSegmentHeader(MAX_SEGMENTS, MAX_VIDEO_INDEX);
 		_indexStream = new SharedQueue<>(10);
-		_signalQueue = new SharedQueue<>(100);
-		_videoStream = new SharedQueue<>(_setup.getMaxSegments() + 1);
+		_signalQueue = new SharedQueue<>(10);
+		_videoStream = new SharedQueue<>(MAX_SEGMENTS + 1);
 	}
 
 	//-------------------------------------------------------------------------
@@ -192,9 +191,9 @@ public class ICCRunner extends VideoSource {
 					 * earliest video segment # stays zero until a certain
 					 * number of rounds specified in _setup._preloadSegments */
 					if(preloaded){
-						oldestSegment = ++oldestSegment % _setup.getMaxSegments();
+						oldestSegment = ++oldestSegment % MAX_VIDEO_INDEX;
 					}
-					else if(currentSegment == _setup.getPreload()){
+					else if(currentSegment == MAX_SEGMENTS){
 						preloaded = true;
 					}
 
@@ -203,7 +202,7 @@ public class ICCRunner extends VideoSource {
 					if(startDeleting){
 						deleteOldSegments(currentSegment);
 					}
-					else if(currentSegment == _setup.getMaxSegmentsSaved()-1){
+					else if(currentSegment == MAX_SEGMENTS){
 						startDeleting = true;
 					}
 
@@ -235,9 +234,9 @@ public class ICCRunner extends VideoSource {
 	 * @see ICCSetup.setMaxSegmentsSaved
 	 */
 	public void deleteOldSegments(int currentSegment){
-		int deleteSegment = currentSegment - _setup.getMaxSegmentsSaved();
+		int deleteSegment = currentSegment - MAX_SEGMENTS;
 		if(deleteSegment < 0){//when current video segment id starts back at 0
-			deleteSegment += _setup.getMaxSegments();
+			deleteSegment += MAX_VIDEO_INDEX;
 		}
 		ICCCleaner cleaner = new ICCCleaner(_s3, VideoSegment.toString(deleteSegment));
 		cleaner.start();
@@ -418,7 +417,7 @@ public class ICCRunner extends VideoSource {
 	 * @return The next video segment index.
 	 */
 	private int incrementVideoSegment(int videoSegment){
-		return ++videoSegment % _setup.getMaxSegments();
+		return ++videoSegment % MAX_VIDEO_INDEX;
 	}
 
 	/**

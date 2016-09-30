@@ -22,9 +22,8 @@ public class ICCSetup {
 	private int _device;
 	private int _height = 480;
 	private int _width = 640;
-	private int _maxSegmentsSaved = 10; // delete x frames behind
-	private static int _maxSegments = 100; //in reference to naming
-	private int _preloadSegments = 5; // diff of min v. max in index file
+	private int _maxSegmentsSaved = 5; // delete x frames behind
+	private static int _maxSegments = 10; //in reference to naming
 	private double _compressionRatio = 1.0;
 	private double _fps = 15;
 	private double _segmentVideoLength = 5; //seconds
@@ -56,14 +55,11 @@ public class ICCSetup {
 	public int getHeight(){
 		return (int)(_height*_compressionRatio);
 	}
-	public int getMaxSegments(){
+	public int getMaxIndex(){
 		return _maxSegments;
 	}
 	public int getMaxSegmentsSaved(){
 		return _maxSegmentsSaved;
-	}
-	public int getPreload(){
-		return _preloadSegments;
 	}
 	public double getSegmentLength(){
 		return _segmentVideoLength;
@@ -105,10 +101,6 @@ public class ICCSetup {
 	}
 	public ICCSetup setMaxSegmentsSaved(int maxSegmentsInFolder){
 		_maxSegmentsSaved = maxSegmentsInFolder;
-		return this;
-	}
-	public ICCSetup setPreload(int preloadedSegments){
-		_preloadSegments = preloadedSegments;
 		return this;
 	}
 	public ICCSetup setSegmentLength(double seconds){
