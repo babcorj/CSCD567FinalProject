@@ -76,10 +76,10 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Private static variables
 	//-------------------------------------------------------------------------
+	private static long _startTime;
 	private static DisplayFrame _display;
 	private static S3Uploader _s3;
 	private static SharedQueue<VideoSegment> _videoStream;
-	private static SharedQueue<byte[]> _indexStream;
 	private static SharedQueue<String> _signalQueue;
 	private static PerformanceLogger _logger;
 
@@ -96,8 +96,6 @@ public class ICCRunner extends VideoSource {
 		super();
 		_className = "ICC Runner";
 		_mat = new Mat();
-		_metadata = new VideoSegmentHeader(MAX_SEGMENTS, MAX_VIDEO_INDEX);
-		_indexStream = new SharedQueue<>(10);
 		_signalQueue = new SharedQueue<>(10);
 		_videoStream = new SharedQueue<>(MAX_SEGMENTS + 1);
 	}
@@ -113,14 +111,25 @@ public class ICCRunner extends VideoSource {
 
 		ICCRunner iccr = new ICCRunner();
 
-		initDisplay();
 		initUploader();
+
+		_startTime = System.currentTimeMillis();
+
+		synchronized(_signalQueue){
+			_signalQueue.enqueue(Long.toString(_startTime));
+			try{
+				_signalQueue.wait();
+			}catch (InterruptedException e){
+				//empty
+			}
+		}
+		initDisplay();
 		initLogging();
 
 		//prints message when S3 has been initialized
 		System.out.println(_signalQueue.dequeue());
 
-		sendSetupFile(_logger.getStartTime());
+		sendSetupFile(_startTime);
 
 		iccr.start();
 	}
@@ -146,7 +155,6 @@ public class ICCRunner extends VideoSource {
 		VideoCapture grabber = null;
 		VideoSegment segment = null;
 		
-		_metadata.setStartTime(_logger.getStartTime());
 		segmentWriter.setFrames(segmentLength);
 
 		try{
@@ -158,7 +166,7 @@ public class ICCRunner extends VideoSource {
 			System.exit(-1);
 		}
 
-		timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+		timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
@@ -179,13 +187,12 @@ public class ICCRunner extends VideoSource {
 
 				//loops until end of current video segment
 				if(frameCount >= segmentLength){
-					segment = new VideoSegment(currentSegment, segmentWriter.getFrames(),
-							output.toByteArray());
+					_vHeader= new VideoSegmentHeader(segmentWriter.getFrames());
+					segment = new VideoSegment(currentSegment,
+							output.toByteArray(),_vHeader);
 
 					sendSegmentToS3(segment);
 					logSegment(timeStarted);
-					_metadata.update(segment);
-					updateIndex();
 
 					/* setup preloaded segments:
 					 * earliest video segment # stays zero until a certain
@@ -210,8 +217,9 @@ public class ICCRunner extends VideoSource {
 					currentSegment = incrementVideoSegment(currentSegment);
 					segmentWriter.reset();
 					frameCount = 0;
-					timeStarted = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 				}
+				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
 				if(e.getMessage().equals("closed")){
@@ -272,6 +280,8 @@ public class ICCRunner extends VideoSource {
 	 * @see PerformanceLogger
 	 */
 	private static void initLogging(){
+		if(!FileData.ISLOGGING.isTrue()) return;
+
 		String loggerFilename = "RunnerLog_COMP-" + _setup.getCompressionRatio()
 		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
 		String s3loggerFilename = "S3Log_COMP-" + _setup.getCompressionRatio()
@@ -287,8 +297,8 @@ public class ICCRunner extends VideoSource {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		_logger.startTime();
-		s3logger.setStartTime(_logger.getStartTime());
+		_logger.setStartTime(_startTime);
+		s3logger.setStartTime(_startTime);
 		_s3.setLogger(s3logger);
 	}
 	
@@ -298,7 +308,6 @@ public class ICCRunner extends VideoSource {
 	 */
 	private static void initUploader(){
 		_s3 = new S3Uploader(_videoStream);
-		_s3.setIndexStream(_indexStream);
 		_s3.setSignal(_signalQueue);
 		_s3.start();
 	}
@@ -311,20 +320,33 @@ public class ICCRunner extends VideoSource {
 	 * @see S3Uploader, ICCSetup
 	 */
 	private static void sendSetupFile(long time){
+		int frames = (int)(_setup.getFPS() * _setup.getSegmentLength());
+		int headerSize = (frames * Integer.BYTES) + Long.BYTES;
 		FileWriter fw = null;
 		String filename = FileData.SETUP_FILE.print();
 		try{
+			StringBuilder sb = new StringBuilder();
 			fw = new FileWriter(filename);
-			fw.write(Long.toString(time) + "\n");
-			fw.write(_setup.getCompressionRatio() + " ");
-			fw.write(_setup.getFPS() + " ");
-			fw.write(_setup.getSegmentLength() + "\n");
+			sb.append(Long.toString(time) + "\n");
+			sb.append(MAX_VIDEO_INDEX + " ");
+			sb.append(MAX_SEGMENTS + "\n");
+			sb.append(headerSize + "\n");
+			sb.append(_setup.getCompressionRatio() + " ");
+			sb.append(_setup.getFPS() + " ");
+			sb.append(_setup.getSegmentLength() + "\n");
+			fw.write(sb.toString());
 			fw.close();
 		} catch(IOException e){
 			System.err.println("ICCR: Unable to create setup file!");
 		}
-		_signalQueue.enqueue(filename);
-		_s3.interrupt();//s3 is waiting for setup file...
+		synchronized(_signalQueue){
+			_signalQueue.enqueue(filename);
+			try{
+				_signalQueue.wait();				
+			}catch(InterruptedException e){
+				//empty
+			}
+		}
 	}
 	
 	/**
@@ -353,7 +375,8 @@ public class ICCRunner extends VideoSource {
 			writer.write();
 			writer.close();
 		}catch(IOException e){
-			System.err.println(e);
+//			System.err.println(e);
+			e.printStackTrace();
 		}
 	}
 
@@ -390,13 +413,17 @@ public class ICCRunner extends VideoSource {
 	 */
 	private void closeEverything(VideoCapture grabber, ICCFrameWriter segmentWriter){
 		try{
-			_logger.close();
-			_signalQueue.enqueue(_logger.getFileName());
-			_signalQueue.enqueue(_logger.getFilePath());
 			grabber.release();
 			segmentWriter.close();
+			
+			if(!FileData.ISLOGGING.isTrue()) return;
+			_signalQueue.enqueue(_logger.getFileName());
+			_signalQueue.enqueue(_logger.getFilePath());
+			_logger.close();
+		
 		} catch(Exception e){
 			System.err.println(e);
+			e.printStackTrace();
 		}
 	}
 	
@@ -407,7 +434,7 @@ public class ICCRunner extends VideoSource {
 	 */
 	private String getTime(){
 		DecimalFormat formatter = new DecimalFormat("#.00");
-		return formatter.format((System.currentTimeMillis() - _logger.getTime())/1000);
+		return formatter.format((System.currentTimeMillis() - _startTime)/1000);
 	}
 
 	/**
@@ -426,7 +453,9 @@ public class ICCRunner extends VideoSource {
 	 * @see getTime
 	 */
 	private void logSegment(double timeStarted){
-		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+		if(!FileData.ISLOGGING.isTrue()) return;
+		
+		double curRunTime = (double)((System.currentTimeMillis() - _startTime)/1000);
 		double value = curRunTime - timeStarted;
 		_logger.logTime();
 		try {
@@ -444,19 +473,6 @@ public class ICCRunner extends VideoSource {
 	 */
 	private void sendSegmentToS3(VideoSegment video){
 		_videoStream.enqueue(video);
-	}
-
-	/**
-	 * Sends playlist to S3Uploader.
-	 */
-	private void updateIndex(){
-		new Thread() {
-			public void run(){
-				byte[] data = _metadata.toString().getBytes();
-				_indexStream.enqueue(data);
-			}
-		}.start();
-		System.out.println("ICC: Playlist ready");
 	}
 }
 

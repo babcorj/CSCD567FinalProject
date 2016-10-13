@@ -13,6 +13,8 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 import com.amazonaws.AmazonClientException;
@@ -27,6 +29,8 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.ObjectListing;
 
 /**
  * 
@@ -43,10 +47,14 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
 public class S3Downloader extends S3UserStream {
 
+	private int _currentIndex;
+	private int _headerSize;
+	private int _maxIndex;
+	private int _maxSegmentsSaved;
+	private long _startTime;
 	private AmazonS3 _s3;
 	private PerformanceLogger _logger;
 	private SharedQueue<String> _signalQueue;
-	private PlaylistParser _parser;
 	private VideoStream _stream;
 
 	//-------------------------------------------------------------------------
@@ -74,12 +82,7 @@ public class S3Downloader extends S3UserStream {
 		Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
 		
 		byte[] videoData = null;
-		double currTimeStamp = 0;
-		int currIndex, lastIndex;
-		int[] currFrameOrder = null;
-		String playlist = FileData.INDEXFILE.print();
-		String prefix = FileData.VIDEO_PREFIX.print();
-		String suffix = FileData.VIDEO_SUFFIX.print();
+		double timeStamp = 0;
 		VideoSegment videoSegment = null;
 		
 		/*
@@ -105,13 +108,7 @@ public class S3Downloader extends S3UserStream {
 					+ "location (/Users/username/.aws/credentials), and is in valid format.");
 			System.exit(-1);
 		}
-		ClientConfiguration config = new ClientConfiguration();
-		config.setConnectionMaxIdleMillis(1000);
-		config.setConnectionTimeout(1000);
-		config.setConnectionTTL(1000);
-		config.setRequestTimeout(1000);
-		config.setClientExecutionTimeout(1000);
-		config.setSocketTimeout(1000);
+		ClientConfiguration config = configS3();
 		_s3 = new AmazonS3Client(credentials, config);
 		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
 		_s3.setRegion(usWest2);
@@ -124,36 +121,11 @@ public class S3Downloader extends S3UserStream {
 		//---------------------------------------------------------------------		
 		try{
 			parseSetupFile();
+			initLogger();
 			
-			synchronized(this){
-				String str = null;
-				while(str == null){
-					try {
-						wait();
-					} catch (InterruptedException e) {
-						str = _signalQueue.dequeue();
-					}
-				}
-			}
 		} catch(IOException e){
 			System.err.println("S3: Failed to retrieve setup file!");
 		}
-
-		//Retrieve the playlist
-		//---------------------------------------------------------------------
-		_parser = null;
-		while(_parser == null) {
-			try {
-				System.out.println("\nAttempting to obtain playlist...");
-				_parser = new PlaylistParser(getFileData(FileData.INDEXFILE.print()));
-			} catch (IOException e) {
-				System.err.println("Failed to retrieve playlist!");
-				e.printStackTrace();
-				Utility.pause(100);
-				continue;
-			}
-		}
-		System.out.println("Playlist obtained!");
 
 		//Gather and send video segments
 		//---------------------------------------------------------------------		
@@ -161,22 +133,14 @@ public class S3Downloader extends S3UserStream {
 
 		while (!_isDone) {
 			try{
-				lastIndex = _parser.getCurrentIndex();
-				_parser.update(getFileData(playlist));
-				currIndex = _parser.getCurrentIndex();
-				if(currIndex == lastIndex){
-//					System.out.println("Curr: " + currIndex + "\nLast: " + lastIndex);
-					Utility.pause(50);
+				if((_key = getCurrentVideo()) == null){
+					Utility.pause(15);
 					continue;
 				}
-				currTimeStamp = _parser.getCurrentTimeStamp();
-				currFrameOrder = _parser.getCurrentFrameData();
-				_key = prefix + currIndex + suffix;
-				
 				System.out.println("Downloading file: " + _key);
-				
+
 				videoData = getFileData(_key);
-				
+
 			} catch(SocketException se){
 				System.err.println(se.getMessage());
 				continue;
@@ -211,9 +175,10 @@ public class S3Downloader extends S3UserStream {
 				continue;
 			}
 
-			videoSegment = new VideoSegment(currIndex, currFrameOrder, videoData).setTimeStamp(currTimeStamp);
+			videoSegment = new VideoSegment(_currentIndex, videoData, _headerSize);
+			timeStamp = videoSegment.getTimeStamp();
 			_stream.add(videoSegment);
-    		logDownload(currTimeStamp);
+    		logDownload(timeStamp);
 		}
 		closeEverything();
 
@@ -244,6 +209,18 @@ public class S3Downloader extends S3UserStream {
 		}catch(IOException e){
 			System.err.println("Could not close S3 logger!");
 		}
+	}
+	
+	private ClientConfiguration configS3(){
+		ClientConfiguration config = new ClientConfiguration();
+		config.setConnectionMaxIdleMillis(1000);
+		config.setConnectionTimeout(1000);
+		config.setConnectionTTL(1000);
+		config.setRequestTimeout(1000);
+		config.setClientExecutionTimeout(1000);
+		config.setSocketTimeout(1000);
+		
+		return config;
 	}
 	
 	/**
@@ -310,13 +287,93 @@ public class S3Downloader extends S3UserStream {
 		return buffer;
 	}
 
+	private int[] getIndeces(List<S3ObjectSummary> summaries, String prefix,
+			String suffix){
+		int prefLength = prefix.length();
+		int suffLength = suffix.length();
+		int[] indeces = new int[_maxSegmentsSaved];
+		
+		for(int i = 0; i < summaries.size(); i++){
+			S3ObjectSummary s = summaries.get(i);
+			String objKey = s.getKey();
+			String strIndex = objKey.substring(prefLength);
+			strIndex = strIndex.substring(0, strIndex.length() - suffLength);
+//			System.out.println(objKey);
+//			System.out.println("Index: " + strIndex);
+			indeces[i] = Integer.parseInt(strIndex);
+		}
+		
+		return indeces;
+	}
+	
+	private int getCurrentIndex(int[] indeces){
+		Arrays.sort(indeces);
+		if(indeces[indeces.length-1] == _maxIndex-1){
+			if(indeces[0] == 0){
+				for(int i = 0; i < indeces.length-1; i++){
+					if(indeces[i+1] - indeces[i] > 1){
+						return i;
+					}
+				}
+			}
+		}
+		return indeces[indeces.length-1];
+	}
+	
+	private String getCurrentVideo(){
+		int tempIndex;
+		int[] indeces;
+		String prefix = FileData.VIDEO_PREFIX.print();
+		String suffix = FileData.VIDEO_SUFFIX.print();
+		
+		ObjectListing listing = _s3.listObjects(_bucketName, prefix );
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+
+		while (listing.isTruncated()) {
+		   listing = _s3.listNextBatchOfObjects(listing);
+		   summaries.addAll(listing.getObjectSummaries());
+		}
+		
+		indeces = getIndeces(summaries, prefix, suffix);
+		tempIndex = _currentIndex;
+		_currentIndex = getCurrentIndex(indeces);
+		if(tempIndex == _currentIndex){
+			return null;
+		}
+		Arrays.sort(indeces);
+		
+		return (prefix + _currentIndex + suffix);
+	}
+
+	/**
+	 * Initializes logging used by GNUplot. Sends a PerformanceLogger to the
+	 * S3Downloader since both require the same startup time.
+	 * @see PerformanceLogger
+	 */
+	private void initLogger(){
+		if(!FileData.ISLOGGING.isTrue()) return;
+		
+		String  logFolder 	= FileData.LOG_DIRECTORY.print(),
+				s3log		= FileData.S3DOWNLOADER_LOG.print();
+		
+		try{
+			_logger = new PerformanceLogger(s3log, logFolder);
+			_logger.setStartTime(_startTime);
+		}
+		catch (IOException ioe){
+			System.err.println("Failed to open performance log");
+		}
+	}
+	
 	/**
 	 * Logs the time the video was sent versus the time the video was received.
-	 * @param currTimeStamp	The timestamp of when the video was sent.
+	 * @param timeStamp	The timestamp of when the video was sent.
 	 */
-	private void logDownload(double currTimeStamp){
-		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
-		double lag = curRunTime - currTimeStamp;
+	private void logDownload(double timeStamp){
+		if(!FileData.ISLOGGING.isTrue()) return;
+		
+		double curRunTime = (double)((System.currentTimeMillis() - _logger.getStartTime())/1000);
+		double lag = curRunTime - timeStamp;
 		try {
 			_logger.logTime();
 			_logger.log(" ");
@@ -337,11 +394,21 @@ public class S3Downloader extends S3UserStream {
 		byte[] data = getSetupFile();
 		ByteArrayInputStream in = new ByteArrayInputStream(data);
 		Scanner sc = new Scanner(in);
-		String startTimeMillis = sc.nextLine();
-		String[] specs = sc.nextLine().split(" ");
+
+		String millis = sc.nextLine();//read
+		_startTime = Long.parseLong(millis);
+
+		String[] segmentInfo = sc.nextLine().split(" ");//read
+		_maxIndex = Integer.parseInt(segmentInfo[0]);
+		_maxSegmentsSaved = Integer.parseInt(segmentInfo[1]);
+
+		_headerSize = Integer.parseInt(sc.nextLine());//read
+		
+		String[] specs = sc.nextLine().split(" ");//read
+		
 		sc.close();
 
-		_signalQueue.enqueue(startTimeMillis);
+		_signalQueue.enqueue(millis);
 		_signalQueue.enqueue(specs[0]);
 		_signalQueue.enqueue(specs[1]);
 		_signalQueue.enqueue(specs[2]);

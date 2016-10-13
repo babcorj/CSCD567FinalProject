@@ -11,6 +11,7 @@ package videoUtility;
 public enum FileData {
 	BUCKET				("icc-videostream-00"),
 	INDEXFILE 			("playlist.txt"),
+	ISLOGGING			(true),
 	LOG_DIRECTORY 		("log/"),
 	PLAYER_LOG			("VideoPlayerLog.txt"),
 	S3UPLOADER_LOG		("S3UploaderLog.txt"),
@@ -21,14 +22,22 @@ public enum FileData {
 	VIDEO_FOLDER		("./videos/"),
 	VIDEO_PREFIX 		("myvideo"),
 	VIDEO_SUFFIX 		("");
-	
-	private final String value;
-	
+
+	private String _value;
+	private boolean _bool;
+
 	FileData(String str){
-		value = str;
+		_value = str;
 	}
-	public String print() { return value; }
+	FileData(Boolean bool){
+		_bool = bool;
+	}
+	public String print() { return _value; }
 	public static String print(FileData data){
 		return data.print();
+	}
+	public boolean isTrue() { return _bool; }
+	public static boolean isTrue(FileData data){
+		return data.isTrue();
 	}
 }

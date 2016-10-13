@@ -1,9 +1,6 @@
 package videoUtility;
 
-import java.io.FileWriter;
-import java.io.IOException;
-//import java.io.IOException;
-import java.text.DecimalFormat;
+import java.nio.ByteBuffer;
 
 /**
  * 
@@ -25,33 +22,51 @@ public class VideoSegmentHeader {
 	//-------------------------------------------------------------------------
 	private int[] _frameOrder;
 	private long _timeStamp;
-	private long _startTime;
 
 	//-------------------------------------------------------------------------
 	//CONSTRUCTORS
 	//-------------------------------------------------------------------------
-	public VideoSegmentHeader(long startTime){
-		_startTime = startTime;
+	public VideoSegmentHeader(int[] frameOrder){
+		_frameOrder = frameOrder;
 	}
-	
+	/**
+	 * Reads in the header data to supply values to member variables.
+	 * @param data	The video header data grabbed from the video file.
+	 */
+	public VideoSegmentHeader(byte[] data){
+		init(data);
+	}
+
 	//-------------------------------------------------------------------------
 	//GETS
 	//-------------------------------------------------------------------------
+	public byte[] data(){
+		assert(_frameOrder != null);
+		
+		ByteBuffer buffer = ByteBuffer.allocate(this.size());
+		buffer.putLong(_timeStamp);
+		
+		for(int i = 0; i < _frameOrder.length; i++){
+			buffer.putInt(_frameOrder[i]);
+		}
+		
+		return buffer.array();
+	}
 	public int[] getFrameOrder(){
 		return _frameOrder;
 	}
-	public int size(){
-		return _frameOrder.length + Double.BYTES;
-	}
-	public double getTimeStamp(){
+	public long getTimeStamp(){
 		return _timeStamp;
+	}
+	public int size(){
+		return Long.BYTES + (_frameOrder.length * Integer.BYTES);
 	}
 
 	//-------------------------------------------------------------------------
 	//SETS
 	//-------------------------------------------------------------------------
-	public void setStartTime(long startTime){
-		_timeStamp = startTime;
+	public void setTimeStamp(long timeStamp){
+		_timeStamp = timeStamp;
 	}
 	public void setFrameOrder(int[] frameOrder){
 		_frameOrder = frameOrder;
@@ -63,8 +78,7 @@ public class VideoSegmentHeader {
 	public String toString(){
 		StringBuilder sbuilder = new StringBuilder();
 
-		sbuilder.append(printSegmentOrder());
-		sbuilder.append(printSegmentData());
+		sbuilder.append(printTimeStamp());
 		sbuilder.append(printSegmentFrameData());
 		
 		return sbuilder.toString();
@@ -81,45 +95,38 @@ public class VideoSegmentHeader {
 	//-------------------------------------------------------------------------
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------
-	/**
-	 * Exports contents to byte array
-	 * 
-	 * @param data	The formatted VideoSegmentHeader
-	 */
-	public byte[] export(){
-		return this.toString().getBytes();
-	}	
 	
 	//-------------------------------------------------------------------------
 	//PRIVATE METHODS
-	//-------------------------------------------------------------------------	
-
-	private String printSegmentData(){
-		DecimalFormat formatter = new DecimalFormat("#.000");
-		String time = "";
+	//-------------------------------------------------------------------------
+	private void init(byte[] data){
+		int frameSize = (data.length - Long.BYTES)/Integer.BYTES;
+		ByteBuffer buffer = ByteBuffer.allocate(data.length);
+		buffer.put(data);
+		buffer.flip();
+		_timeStamp = buffer.getLong();
+		_frameOrder = new int[frameSize];
 		
-		time = formatter.format(((_timeStamp - _startTime)/1000));
-		sb.append(v.getIndex() + ":" + time + "\n");
-
-		return sb.toString();
+		for(int i = 0; i < _frameOrder.length; i++){
+			_frameOrder[i] = buffer.getInt();
+		}
+		buffer = null;
+	}
+	
+	private String printTimeStamp(){
+		return new Long(_timeStamp).toString();
 	}
 	
 	private String printSegmentFrameData(){
 		StringBuilder sb = new StringBuilder();
 		
-		sb.append("<SegmentFrameData>\n");
-		
-		for(VideoSegment v : _videoDataList){
-			int i, size;
-			int[] x = v.getFrameOrder();
-			sb.append(v.getIndex() + ":<");
+		int size = _frameOrder.length-2;
 
-			for(i = 0, size = x.length-1; i < size; i++){
-				sb.append(Integer.toString(x[i]) + " ");
-			}
-			sb.append(Integer.toString(x[i]) + "/>\n");
+		for(int i = 0; i < size; i++){
+			sb.append(Integer.toString(_frameOrder[i]) + " ");
 		}
-		sb.append("</SegmentFrameData>\n");
+		sb.append(Integer.toString(_frameOrder[size-1]));
+	
 		return sb.toString();
 	}
 	

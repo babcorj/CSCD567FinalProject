@@ -44,10 +44,11 @@ public class VideoPlayer extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Member Variables
 	//-------------------------------------------------------------------------
+	private static long _millis;
 	private static DisplayFrame _display;
 	private static List<Double> _records;
 	private static PerformanceLogger _logger;
-	private static S3Downloader downloader;
+	private static S3Downloader _downloader;
 	private static SharedQueue<String> _signalQueue;
 	private static String[] _specs = new String[3];
 	//_specs: 0=Compression, 1=FPS, 2=SegmentLength; from setup file on S3
@@ -61,10 +62,10 @@ public class VideoPlayer extends VideoSource {
 		_className = "ICC VideoPlayer";
 		_records = new ArrayList<>();
 		stream = new VideoStream();
-		downloader = new S3Downloader(stream);
+		_downloader = new S3Downloader(stream);
 		_signalQueue = new SharedQueue<>(10);
-		downloader.setSignal(_signalQueue);
-		downloader.start();
+		_downloader.setSignal(_signalQueue);
+		_downloader.start();
 	}
 
 	//-------------------------------------------------------------------------
@@ -100,6 +101,7 @@ public class VideoPlayer extends VideoSource {
 //			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
 
 			try {
+				System.out.println("List is coming..");
 				videoSegment = stream.getFrame();
 				logDelay(videoSegment);
 				frameList = videoSegment.getImageList();
@@ -148,31 +150,30 @@ public class VideoPlayer extends VideoSource {
 	 * @see PerformanceLogger
 	 */
 	private static void initLogger(){
+
 		String  plog 		= FileData.PLAYER_LOG.print(),
 				logFolder 	= FileData.LOG_DIRECTORY.print(),
-				s3dlog		= FileData.S3DOWNLOADER_LOG.print(),
+				s3log		= FileData.S3DOWNLOADER_LOG.print(),
 				script		= FileData.SCRIPTFILE.print();
-		
-		String millis = _signalQueue.dequeue();
-		PerformanceLogger s3logger = null;
 
+		  _millis = Long.parseLong(_signalQueue.dequeue());
+		_specs[0] = _signalQueue.dequeue();//compression
+		_specs[1] = _signalQueue.dequeue();//FPS
+		_specs[2] = _signalQueue.dequeue();//segmentLength
+		
+		if(!FileData.ISLOGGING.isTrue()) return;
+
+		writeGNUPlotScript(logFolder+plog, logFolder+s3log, script);
 		try{
 			_logger = new PerformanceLogger(plog, logFolder);
-			s3logger = new PerformanceLogger(s3dlog, logFolder);
-
-			_logger.setStartTime(Long.parseLong(millis));
-			s3logger.setStartTime(Long.parseLong(millis));
-
-			writeGNUPlotScript(script, logFolder + plog, logFolder + s3dlog);
-		}
-		catch (IOException ioe){
+			_logger.setStartTime(_millis);
+		} catch (IOException ioe){
 			System.err.println("Failed to open performance log");
+		} catch (Exception e){
+			System.err.println("Failed to create VP logger");
 		}
-		downloader.setPerformanceLog(s3logger);
-		_signalQueue.enqueue("VP: Log files initialized...");
-		downloader.interrupt();
 	}
-
+	
 	/**
 	 * Creates script based on logged data. Runnable by GNUplot.
 	 * 
@@ -181,14 +182,11 @@ public class VideoPlayer extends VideoSource {
 	 * @param s3file		The name of the S3 downloader log file.
 	 * @see PerformanceLogger, GNUScriptParameters, GNUScriptWriter
 	 */
-	private static void writeGNUPlotScript(String scriptfile, String playerfile, String s3file){
-		_specs[0] = _signalQueue.dequeue();//compression
-		_specs[1] = _signalQueue.dequeue();//FPS
-		_specs[2] = _signalQueue.dequeue();//segmentLength
+	private static void writeGNUPlotScript(String plog, String s3log, String script){
 		int col1[] = {1, 2};
-		PlotObject runnerPlot = new PlotObject(new File(playerfile).getAbsolutePath(), "Overall Delay", col1);
+		PlotObject runnerPlot = new PlotObject(new File(plog).getAbsolutePath(), "Overall Delay", col1);
 		runnerPlot.setLine("lc rgb '#ff9900' lt 1 lw 2 pt 7 ps 1.5");
-		PlotObject s3Plot = new PlotObject(new File(s3file).getAbsolutePath(), "Frame Delay", col1);
+		PlotObject s3Plot = new PlotObject(new File(s3log).getAbsolutePath(), "Frame Delay", col1);
 		s3Plot.setLine("lc rgb '#009900' lt 1 lw 2 pt 5 ps 1.5");
 		GNUScriptParameters params = new GNUScriptParameters("ICC Client");
 		params.addElement("CompressionRatio(" + _specs[0] + ")");
@@ -200,7 +198,7 @@ public class VideoPlayer extends VideoSource {
 		params.setLabelY("Delay (sec)");
 		
 		try{
-			GNUScriptWriter writer = new GNUScriptWriter(scriptfile, params);
+			GNUScriptWriter writer = new GNUScriptWriter(script, params);
 			writer.write();
 			writer.close();
 		}catch(IOException e){
@@ -215,8 +213,10 @@ public class VideoPlayer extends VideoSource {
 	 * Closes all closeable instances created.
 	 */
 	private void closeEverything(){
-		double avg = Calculate.average(_records);
 		try {
+			if(!FileData.ISLOGGING.isTrue()) return;
+			
+			double avg = Calculate.average(_records);
 			_logger.log(String.format("#Avg Delay: " + avg + "\n"));
 			_logger.log(String.format("#StdDev: " + Calculate.standardDeviation(avg, _records)) + "\n");
 			_logger.close();
@@ -230,7 +230,9 @@ public class VideoPlayer extends VideoSource {
 	 * @param videoSegment	The video segment to be played.
 	 */
 	private void logDelay(VideoSegment videoSegment){
-		double timeOut = (System.currentTimeMillis() - _logger.getTime())/1000
+		if(!FileData.ISLOGGING.isTrue()) return;
+
+		double timeOut = (System.currentTimeMillis() - _logger.getStartTime())/1000
 				- videoSegment.getTimeStamp();
 		try {
 			_logger.logTime();

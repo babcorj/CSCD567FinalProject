@@ -20,10 +20,6 @@ public class PerformanceLogger {
 		return _startTime;
 	}
 	
-	public double getTime(){
-		return _startTime;
-	}
-	
 	public String getFileName(){
 		return _filename;
 	}

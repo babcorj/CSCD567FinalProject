@@ -2,28 +2,69 @@ package videoUtility;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedList;
 
+/**
+ * 
+ * @author Ryan Babcock
+ * 
+ * This class represents one video segment that is being used within a video
+ * stream.
+ *
+ */
 public class VideoSegment {
 
+	//-------------------------------------------------------------------------
+	//PARAMETERS
+	//-------------------------------------------------------------------------
+	/*
+	 * @param _data	The video data containing all images in a sequence.
+	 * @param _index	The number used to identify this video in the stream.
+	 * @param _imglist	Every image within the video segment, taken from data.
+	 * @param _header	The header, which contains the timestamp of the video
+	 * 					and indeces of every image within _data.
+	 */
 	private byte[] _data;
 	private int _index;
 	private LinkedList<BufferedImage> _imglist;
 	private VideoSegmentHeader _header;
 	
+	/**
+	 * Constructor used when header information and video data are separately
+	 * known (used by the ICCRunner).
+	 * @param index		Index of video segment within video stream.
+	 * @param data		The data of every image recorded.
+	 * @param header	The header information (incomplete video segment if
+	 * 					frame order is null).
+	 */
 	public VideoSegment(int index, byte[] data, VideoSegmentHeader header) {
 		_data = data;
 		_index = index;
 		_header = header;
-		_header.setStartTime(System.currentTimeMillis());
+		_header.setTimeStamp(System.currentTimeMillis());
+	}
+	/**
+	 * Constructor uses data that contains both header and video segment info.
+	 * @param index			Index of video segment within video stream.
+	 * @param data			The data of every image recorded.
+	 * @param headerLength	The length of the header information.
+	 */	
+	public VideoSegment(int index, byte[] data, int headerLength){
+		_data = parseVideoData(data, headerLength);
+		_index = index;
+		_header = new VideoSegmentHeader(parseHeaderData(data, headerLength));
 	}
 
 	//-------------------------------------------------------------------------
 	//GET METHODS
 	//-------------------------------------------------------------------------
-	public byte[] getData(){
+	public byte[] data(){
 		byte[] data = assembleData();
 		return data;
+	}
+	public VideoSegmentHeader getHeader(){
+		return _header;
 	}
 	public LinkedList<BufferedImage> getImageList(){
 		if(_imglist == null){
@@ -41,7 +82,7 @@ public class VideoSegment {
 		return FileData.VIDEO_PREFIX.print() + _index + FileData.VIDEO_SUFFIX.print();
 	}
 	public long size(){
-		return _data.length + _video.size();
+		return _data.length + _header.size();
 	}
 	
 	//-------------------------------------------------------------------------
@@ -55,19 +96,12 @@ public class VideoSegment {
 	//PRIVATE METHODS
 	//-------------------------------------------------------------------------
 	private byte[] assembleData(){
-		byte[] headerData = _header.export();
+		byte[] headerData = _header.data();
 		byte[] data = new byte[headerData.length + _data.length];
-		int i = 0, j = 0, size = headerData.length;
 		//store header data
-		for(; i < size; i++){
-			data[i] = headerData[i];
-		}
-		
-		size = data.length;
+		System.arraycopy(headerData, 0, data, 0, headerData.length);
 		//store video data
-		for(; i < size; i++, j++){
-			data[i] = _data[j];
-		}
+		System.arraycopy(_data, 0, data, headerData.length, _data.length);
 		
 		return data;
 	}
@@ -82,5 +116,13 @@ public class VideoSegment {
 		}
 
 		return imglist;
+	}
+	
+	private byte[] parseHeaderData(byte[] data, int headerLength){
+		return Arrays.copyOfRange(data, 0, headerLength);
+	}
+	
+	private byte[] parseVideoData(byte[] data, int headerLength){
+		return Arrays.copyOfRange(data, headerLength, data.length);
 	}
 }
