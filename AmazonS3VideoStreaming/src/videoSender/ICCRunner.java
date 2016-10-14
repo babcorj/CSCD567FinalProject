@@ -46,6 +46,10 @@ import GNUPlot.PlotObject;
  * drawback is that the playlist has to be sent after each video is loaded,
  * which essentially doubles the cost of using Amazon S3.
  *
+ * Used in Run configuration settings:
+ * 	Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
+ * 	System.out.println(System.getProperty("java.library.path"));
+
  * @version v.0.0.20
  * @see VideoSource
  */
@@ -78,6 +82,7 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	private static long _startTime;
 	private static DisplayFrame _display;
+	private static ICCCleaner _cleaner;
 	private static S3Uploader _s3;
 	private static SharedQueue<VideoSegment> _videoStream;
 	private static SharedQueue<String> _signalQueue;
@@ -104,14 +109,13 @@ public class ICCRunner extends VideoSource {
 	//Main
 	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
-		/* Used in Run configuration settings */
-//		Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
-//		System.out.println(System.getProperty("java.library.path"));
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		ICCRunner iccr = new ICCRunner();
 
+		initDisplay();
 		initUploader();
+		initCleaner();
 
 		_startTime = System.currentTimeMillis();
 
@@ -123,9 +127,10 @@ public class ICCRunner extends VideoSource {
 				//empty
 			}
 		}
-		initDisplay();
-		initLogging();
-
+		
+		if(FileData.ISLOGGING.isTrue()){
+			initLogging();			
+		}
 		//prints message when S3 has been initialized
 		System.out.println(_signalQueue.dequeue());
 
@@ -147,13 +152,13 @@ public class ICCRunner extends VideoSource {
 
 		int frameCount = 0, oldestSegment = 0, currentSegment = 0;
 		int segmentLength = (int)(_setup.getFPS() * _setup.getSegmentLength());
-		boolean preloaded = false,
-				startDeleting = false;
+		boolean preloaded = false;
 		double timeStarted;
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		ICCFrameWriter segmentWriter = new ICCFrameWriter(_mat, output);
 		VideoCapture grabber = null;
-		VideoSegment segment = null;
+		VideoSegment segment = new VideoSegment();
+		VideoSegmentHeader header = new VideoSegmentHeader();
 		
 		segmentWriter.setFrames(segmentLength);
 
@@ -179,7 +184,7 @@ public class ICCRunner extends VideoSource {
 				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
 				Imgproc.putText(_mat, getTime(),
 						_timeStampLocation,
-						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(255));
+						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
 
 				_display.setCurrentFrame(this.getCurrentFrame());
 				segmentWriter.write();
@@ -187,30 +192,24 @@ public class ICCRunner extends VideoSource {
 
 				//loops until end of current video segment
 				if(frameCount >= segmentLength){
-					_vHeader= new VideoSegmentHeader(segmentWriter.getFrames());
-					segment = new VideoSegment(currentSegment,
-							output.toByteArray(),_vHeader);
-
+					//set parameters instead of 'new' to avoid memory usage
+					header.setFrameOrder(segmentWriter.getFrames());
+					segment.setIndex(currentSegment);
+					segment.setData(output.toByteArray());
+					segment.setHeader(header);
+					
 					sendSegmentToS3(segment);
-					logSegment(timeStarted);
+					
+					if(FileData.ISLOGGING.isTrue()){
+						logSegment(timeStarted);
+					}
 
-					/* setup preloaded segments:
-					 * earliest video segment # stays zero until a certain
-					 * number of rounds specified in _setup._preloadSegments */
 					if(preloaded){
 						oldestSegment = ++oldestSegment % MAX_VIDEO_INDEX;
-					}
-					else if(currentSegment == MAX_SEGMENTS){
-						preloaded = true;
-					}
-
-					/* delete old video segments:
-					 * removes the nth video behind based on _setup._maxSegmentsSaved */
-					if(startDeleting){
 						deleteOldSegments(currentSegment);
 					}
 					else if(currentSegment == MAX_SEGMENTS){
-						startDeleting = true;
+						preloaded = true;
 					}
 
 					//start new recording
@@ -219,7 +218,7 @@ public class ICCRunner extends VideoSource {
 					frameCount = 0;
 					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 				}
-				Utility.pause((long) (1000/_setup.getFPS()));
+//				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
 				if(e.getMessage().equals("closed")){
@@ -236,21 +235,6 @@ public class ICCRunner extends VideoSource {
 	//Public methods
 	//-------------------------------------------------------------------------
 	/**
-	 * Deletes oldest segment based on currentSegment.
-	 * 
-	 * @param currentSegment	The most current video segment recorded.
-	 * @see ICCSetup.setMaxSegmentsSaved
-	 */
-	public void deleteOldSegments(int currentSegment){
-		int deleteSegment = currentSegment - MAX_SEGMENTS;
-		if(deleteSegment < 0){//when current video segment id starts back at 0
-			deleteSegment += MAX_VIDEO_INDEX;
-		}
-		ICCCleaner cleaner = new ICCCleaner(_s3, VideoSegment.toString(deleteSegment));
-		cleaner.start();
-	}
-
-	/**
 	 * Used to end current ICCRunner thread.
 	 */
 	public void end(){
@@ -262,6 +246,11 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Private static methods
 	//-------------------------------------------------------------------------	
+	private static void initCleaner(){
+		_cleaner = new ICCCleaner(_s3);
+		_cleaner.start();
+	}
+
 	/**
 	 * Initializes the display.
 	 * @see DisplayFrame
@@ -280,8 +269,6 @@ public class ICCRunner extends VideoSource {
 	 * @see PerformanceLogger
 	 */
 	private static void initLogging(){
-		if(!FileData.ISLOGGING.isTrue()) return;
-
 		String loggerFilename = "RunnerLog_COMP-" + _setup.getCompressionRatio()
 		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
 		String s3loggerFilename = "S3Log_COMP-" + _setup.getCompressionRatio()
@@ -321,7 +308,8 @@ public class ICCRunner extends VideoSource {
 	 */
 	private static void sendSetupFile(long time){
 		int frames = (int)(_setup.getFPS() * _setup.getSegmentLength());
-		int headerSize = (frames * Integer.BYTES) + Long.BYTES;
+//		int headerSize = (frames * Integer.BYTES) + Long.BYTES;
+		int headerSize = (frames * 4) + 8;
 		FileWriter fw = null;
 		String filename = FileData.SETUP_FILE.print();
 		try{
@@ -384,6 +372,43 @@ public class ICCRunner extends VideoSource {
 	//Private methods
 	//-------------------------------------------------------------------------
 	/**
+	 * Closes all closeable objects used by the ICCRunner.
+	 * 
+	 * @param grabber			The VideoCapture used to open camera device.
+	 * @param segmentWriter		The ICCFrameWriter used to write video.
+	 */
+	private void closeEverything(VideoCapture grabber, ICCFrameWriter segmentWriter){
+		try{
+			_cleaner.end();
+			grabber.release();
+			segmentWriter.close();
+			
+			if(!FileData.ISLOGGING.isTrue()) return;
+			_signalQueue.enqueue(_logger.getFileName());
+			_signalQueue.enqueue(_logger.getFilePath());
+			_logger.close();
+		
+		} catch(Exception e){
+			System.err.println(e);
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Deletes oldest segment based on currentSegment.
+	 * 
+	 * @param currentSegment	The most current video segment recorded.
+	 * @see ICCSetup.setMaxSegmentsSaved
+	 */
+	private void deleteOldSegments(int currentSegment){
+		int deleteSegment = currentSegment - MAX_SEGMENTS;
+		if(deleteSegment < 0){//when current video segment id starts back at 0
+			deleteSegment += MAX_VIDEO_INDEX;
+		}
+		_cleaner.add(VideoSegment.toString(deleteSegment));
+	}
+	
+	/**
 	 * Grabs the image from the most current frame recorded.
 	 * 
 	 * @return the image used by DisplayFrame
@@ -403,28 +428,6 @@ public class ICCRunner extends VideoSource {
 		img.getRaster().setDataElements(0, 0, 
 				_mat.cols(), _mat.rows(), dat);
 		return img;
-	}
-
-	/**
-	 * Closes all closeable objects used by the ICCRunner.
-	 * 
-	 * @param grabber			The VideoCapture used to open camera device.
-	 * @param segmentWriter		The ICCFrameWriter used to write video.
-	 */
-	private void closeEverything(VideoCapture grabber, ICCFrameWriter segmentWriter){
-		try{
-			grabber.release();
-			segmentWriter.close();
-			
-			if(!FileData.ISLOGGING.isTrue()) return;
-			_signalQueue.enqueue(_logger.getFileName());
-			_signalQueue.enqueue(_logger.getFilePath());
-			_logger.close();
-		
-		} catch(Exception e){
-			System.err.println(e);
-			e.printStackTrace();
-		}
 	}
 	
 	/**
