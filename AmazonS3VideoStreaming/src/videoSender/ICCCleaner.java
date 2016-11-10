@@ -24,20 +24,29 @@ public class ICCCleaner extends Thread {
 	}
 	
 	public void run(){
-		String delKey;
+		String delKey = "";
 		while(!_isDone){
-			if(_listDel.isEmpty()){
-				try{
-					synchronized(this){						
-						wait();
-					}
-					continue;
-				} catch(InterruptedException e){}
-			}
-			delKey = _listDel.removeFirst();
-			s3.delete(delKey);
-			while(!s3.isDeleted(delKey)){
+			try{
+				if(_listDel.isEmpty()){
+					try{
+						synchronized(this){						
+							wait();
+						}
+						continue;
+					} catch(InterruptedException e){}
+				}
+				delKey = _listDel.removeFirst();
+				s3.delete(delKey);
+				while(!s3.isDeleted(delKey)){
+					Utility.pause(50);
+				}
+			}catch(Exception e1){
 				Utility.pause(50);
+				try{
+					if(!s3.isDeleted(delKey)){
+						_listDel.addFirst(delKey);
+					}
+				}catch(Exception e2){}
 			}
 		}
 	}

@@ -45,7 +45,6 @@ public class VideoSegment {
 		_data = data;
 		_index = index;
 		_header = header;
-		_header.setTimeStamp(System.currentTimeMillis());
 	}
 	/**
 	 * Constructor uses data that contains both header and video segment info.
@@ -97,9 +96,8 @@ public class VideoSegment {
 	public void setData(byte[] data){
 		_data = data;
 	}
-	public void setHeader(VideoSegmentHeader header){//should be called last
+	public void setHeader(VideoSegmentHeader header){
 		_header = header;
-		_header.setTimeStamp(System.currentTimeMillis());
 	}
 	
 	//-------------------------------------------------------------------------

@@ -3,6 +3,7 @@ package videoUtility;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 public class PerformanceLogger {
@@ -28,7 +29,7 @@ public class PerformanceLogger {
 		return new File(_folder + _filename).getAbsolutePath();
 	}
 	
-	public synchronized void log(double number){
+	public void log(double number){
 		DecimalFormat formatter = new DecimalFormat("#.000");
 		
 		try{
@@ -39,27 +40,18 @@ public class PerformanceLogger {
 		}
 	}
 	
-	public synchronized void log(String str) throws IOException {
+	public void log(String str) throws IOException {
 		try{
 			_fw.write(str);
 		}
 		catch(IOException e){
-			String s = str;
-			if(str != null){
-				if(str.length() >= 16){
-					s = str.substring(0, 16);
-				}
-			} else {
-				s = "";
-			}
-			System.err.println("Logging error:" + s + "...");
+			e.printStackTrace();
 		}
 	}
 	
-	public synchronized void logTime(){
-		double cur = System.currentTimeMillis();
-		double startTime = _startTime;
-		double timelapse = (cur - startTime)/1000;
+	public void logTime(){
+		long cur = System.currentTimeMillis();
+		double timelapse = (double)(cur - _startTime)/1000;
 		DecimalFormat formatter = new DecimalFormat("#.000");
 		
 		try{
@@ -67,7 +59,6 @@ public class PerformanceLogger {
 		}
 		catch(IOException e){
 			e.printStackTrace();
-			System.err.println("Logging error:" + (cur - startTime)/1000);
 		}
 	}
 	

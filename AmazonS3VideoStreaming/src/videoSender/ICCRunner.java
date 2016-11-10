@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 import org.opencv.core.Core;
@@ -62,8 +63,8 @@ public class ICCRunner extends VideoSource {
 	 * 							can be saved to Amazon S3 (anything older is
 	 * 							deleted from the bucket).
 	 */
-	private final static int MAX_VIDEO_INDEX = 10;
-	private final static int MAX_SEGMENTS = 5;
+	private final static int MAX_VIDEO_INDEX = 500;
+	private final static int MAX_SEGMENTS = 20;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
@@ -75,7 +76,7 @@ public class ICCRunner extends VideoSource {
 			.setFPS(6)
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
-			.setSegmentLength(5);//in seconds
+			.setSegmentLength(2);//in seconds
 
 	//-------------------------------------------------------------------------
 	//Private static variables
@@ -117,17 +118,17 @@ public class ICCRunner extends VideoSource {
 		initUploader();
 		initCleaner();
 
-		_startTime = System.currentTimeMillis();
 
-		synchronized(_signalQueue){
-			_signalQueue.enqueue(Long.toString(_startTime));
-			try{
-				_signalQueue.wait();
-			}catch (InterruptedException e){
-				//empty
-			}
-		}
+//		synchronized(_signalQueue){
+//			_signalQueue.enqueue(Long.toString(_startTime));
+//			try{
+//				_signalQueue.wait();
+//			}catch (InterruptedException e){
+//				//empty
+//			}
+//		}
 		
+		_startTime = System.currentTimeMillis();
 		if(FileData.ISLOGGING.isTrue()){
 			initLogging();			
 		}
@@ -160,6 +161,7 @@ public class ICCRunner extends VideoSource {
 		VideoSegment segment = new VideoSegment();
 		VideoSegmentHeader header = new VideoSegmentHeader();
 		
+		header.setTimeStamp(System.currentTimeMillis());
 		segmentWriter.setFrames(segmentLength);
 
 		try{
@@ -172,7 +174,8 @@ public class ICCRunner extends VideoSource {
 		}
 
 		timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
-
+//		System.out.println("Start time: " + _startTime);
+		
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
 			try {
@@ -197,7 +200,9 @@ public class ICCRunner extends VideoSource {
 					segment.setIndex(currentSegment);
 					segment.setData(output.toByteArray());
 					segment.setHeader(header);
-					
+
+//					System.out.println(segment.getName() + "(TIME): " + segment.getTimeStamp());
+
 					sendSegmentToS3(segment);
 					
 					if(FileData.ISLOGGING.isTrue()){
@@ -217,6 +222,7 @@ public class ICCRunner extends VideoSource {
 					segmentWriter.reset();
 					frameCount = 0;
 					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
+					header.setTimeStamp(System.currentTimeMillis());
 				}
 //				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
@@ -436,8 +442,9 @@ public class ICCRunner extends VideoSource {
 	 * @return The time passed since program began.
 	 */
 	private String getTime(){
-		DecimalFormat formatter = new DecimalFormat("#.00");
-		return formatter.format((System.currentTimeMillis() - _startTime)/1000);
+		DecimalFormat formatter = new DecimalFormat("#.##");
+		formatter.setRoundingMode(RoundingMode.CEILING);
+		return formatter.format((double)(System.currentTimeMillis() - _startTime)/1000);
 	}
 
 	/**

@@ -90,7 +90,7 @@ public class S3Uploader extends S3UserStream {
 		System.out.println("Amazon S3: Preparation complete!");
 
 		//receive same start time
-		_startTime = Long.parseLong(_signalQueue.dequeue());
+//		_startTime = Long.parseLong(_signalQueue.dequeue());
 
 		//let ICCRunner know we're ready for the setup file
 		synchronized(_signalQueue){
@@ -113,7 +113,7 @@ public class S3Uploader extends S3UserStream {
 			VideoSegment segment;
 			
 			try { //start uploading video stream
-				double timeReceived = (double)((System.currentTimeMillis() - _startTime/1000));
+				double timeReceived = (double)((System.currentTimeMillis() - _startTime)/1000);
 				segment = _stream.dequeue();
 				_key = segment.getName();
 				info.setContentLength(segment.size());
@@ -121,7 +121,7 @@ public class S3Uploader extends S3UserStream {
 				
 				System.out.println("S3: Uploading file '" + _key + "'...");
 				
-				uploadSegment(_transferMGMT, bin, _key, segment.size());
+				uploadSegment(bin, segment.size());
 				logUpload(timeReceived);
 
 				_key = null;
@@ -157,6 +157,7 @@ public class S3Uploader extends S3UserStream {
 	//-------------------------------------------------------------------------
 	public void setLogger(PerformanceLogger logger){
 		_logger = logger;
+		_startTime = logger.getStartTime();
 	}
 	public void setSignal(SharedQueue<String> signal){
 		_signalQueue = signal;
@@ -170,13 +171,14 @@ public class S3Uploader extends S3UserStream {
 	 * @param file		The file to be deleted from S3.
 	 */
 	public void delete(String file){
-		while(true){
+		while(!isDeleted(file)){
 			try{
 				_s3.deleteObject(new DeleteObjectRequest(_bucketName, file));
-				break;
+//				break;
 			} catch(Exception e){
-//				e.printStackTrace();
+				e.printStackTrace();
 				System.err.println("Deletion failed: " + file);
+				Utility.pause(50);
 				continue;
 			}
 		}
@@ -196,7 +198,12 @@ public class S3Uploader extends S3UserStream {
 	}
 
 	public boolean isDeleted(String file){
-		return !_s3.doesObjectExist(_bucketName, file);
+		try{
+			if(!_s3.doesObjectExist(_bucketName, file)){
+				return true;
+			}
+		}catch(AmazonClientException ace){}
+		return false;
 	}
 	
 	//-------------------------------------------------------------------------
@@ -239,7 +246,7 @@ public class S3Uploader extends S3UserStream {
 		
 		_logger.logTime();
 
-		double curRunTime = (double)((System.currentTimeMillis() - _startTime/1000));
+		double curRunTime = (double)((System.currentTimeMillis() - _startTime)/1000);
 		double value = curRunTime - timeReceived;
 
 		try {
@@ -296,16 +303,16 @@ public class S3Uploader extends S3UserStream {
 	 * 
 	 * WARNING: If unable to upload, will spin forever!
 	 */
-	private void uploadSegment(TransferManager transferMGMT, InputStream input, String key, long size){
+	private void uploadSegment(InputStream input, long size){
 		ObjectMetadata info = new ObjectMetadata();
 		info.setContentLength(size);
-		PutObjectRequest request = new PutObjectRequest(_bucketName, key, input, info);
-		Upload upload = transferMGMT.upload(request);
+		PutObjectRequest request = new PutObjectRequest(_bucketName, _key, input, info);
+		Upload upload = _transferMGMT.upload(request);
 		
 		while(!upload.isDone()){
 			Utility.pause(10);
 		}
-		System.out.println("S3: Uploaded: '" + key + "'");
+		System.out.println("S3: Uploaded: '" + _key + "'");
 	}
 }
 
