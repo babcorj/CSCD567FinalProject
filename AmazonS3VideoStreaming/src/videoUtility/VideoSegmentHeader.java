@@ -119,7 +119,7 @@ public class VideoSegmentHeader {
 	}
 	
 	private String printTimeStamp(){
-		return new Long(_timeStamp).toString();
+		return Long.toString(_timeStamp);
 	}
 	
 	private String printSegmentFrameData(){

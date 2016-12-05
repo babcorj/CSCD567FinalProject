@@ -115,7 +115,7 @@ public class S3Uploader extends S3UserStream {
 			try { //start uploading video stream
 				double timeReceived = (double)((System.currentTimeMillis() - _startTime)/1000);
 				segment = _stream.dequeue();
-				_key = segment.getName();
+				_key = segment.toString();
 				info.setContentLength(segment.size());
 				ByteArrayInputStream bin = new ByteArrayInputStream(segment.data());
 				

@@ -51,7 +51,7 @@ public class VideoSegment {
 	 * @param index			Index of video segment within video stream.
 	 * @param data			The data of every image recorded.
 	 * @param headerLength	The length of the header information.
-	 */	
+	 */
 	public VideoSegment(int index, byte[] data, int headerLength){
 		_data = parseVideoData(data, headerLength);
 		_index = index;
@@ -77,11 +77,8 @@ public class VideoSegment {
 	public int getIndex(){
 		return _index;
 	}
-	public double getTimeStamp(){
+	public long getTimeStamp(){
 		return _header.getTimeStamp();
-	}
-	public String getName(){
-		return FileData.VIDEO_PREFIX.print() + _index + FileData.VIDEO_SUFFIX.print();
 	}
 	public long size(){
 		return _data.length + _header.size();
@@ -103,6 +100,9 @@ public class VideoSegment {
 	//-------------------------------------------------------------------------
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------
+	public String toString(){
+		return FileData.VIDEO_PREFIX.print() + _index + FileData.VIDEO_SUFFIX.print();
+	}
 	public static String toString(int index){
 		return FileData.VIDEO_PREFIX.print() + index + FileData.VIDEO_SUFFIX.print();
 	}

@@ -7,7 +7,8 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 public class PerformanceLogger {
-
+	static final long TIME_OFFSET = -25259;
+	
 	private long _startTime;
 	private FileWriter _fw;
 	private String _filename;
@@ -29,8 +30,13 @@ public class PerformanceLogger {
 		return new File(_folder + _filename).getAbsolutePath();
 	}
 	
+<<<<<<< HEAD
 	public void log(double number){
 		DecimalFormat formatter = new DecimalFormat("#.000");
+=======
+	public synchronized void log(double number){
+		DecimalFormat formatter = new DecimalFormat("#.###");
+>>>>>>> ef2ee8c9cf74eb0178f54d41aa566b8f0bc99673
 		
 		try{
 			_fw.write(formatter.format(number));
@@ -49,9 +55,16 @@ public class PerformanceLogger {
 		}
 	}
 	
+<<<<<<< HEAD
 	public void logTime(){
 		long cur = System.currentTimeMillis();
 		double timelapse = (double)(cur - _startTime)/1000;
+=======
+	public synchronized void logTime(){
+		double cur = System.currentTimeMillis() + TIME_OFFSET;
+		double startTime = _startTime;
+		double timelapse = (cur - startTime)/1000;
+>>>>>>> ef2ee8c9cf74eb0178f54d41aa566b8f0bc99673
 		DecimalFormat formatter = new DecimalFormat("#.000");
 		
 		try{

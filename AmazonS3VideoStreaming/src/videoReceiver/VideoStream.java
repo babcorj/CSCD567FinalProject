@@ -33,4 +33,7 @@ public class VideoStream {
 	public VideoSegment getFrame() {
 		return _stream.dequeue();
 	}
+	public int size(){
+		return _stream.size();
+	}
 }
