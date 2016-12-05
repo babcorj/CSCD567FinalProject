@@ -8,23 +8,31 @@ import org.opencv.videoio.VideoCapture;
 //import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.Videoio;
 
+/**
+ * Used to set parameters used for recording video segments.
+ * 
+ * @author Ryan Babcock
+ * @see ICCRunner, VideoCapture
+ */
 public class ICCSetup {
 
+	//-------------------------------------------------------------------------
+	//Private variables
+	//-------------------------------------------------------------------------
 	private int _device;
 	private int _height = 480;
 	private int _width = 640;
-	private int _maxSegmentsSaved = 10; // delete x frames behind
-	private static int _maxSegments = 100; //in reference to naming
-	private int _preloadSegments = 5; // diff of min v. max in index file
-	private double _compressionRatio = 10;
-	private double _fps = 20;
-	private double _segmentVideoLength = 4; //seconds
+	private int _maxSegmentsSaved = 5; // delete x frames behind
+	private static int _maxSegments = 10; //in reference to naming
+	private double _compressionRatio = 1.0;
+	private double _fps = 15;
+	private double _segmentVideoLength = 5; //seconds
 	private FourCC _fourCC = new FourCC("MJPG");
 	private VideoCapture _videoCap;
 
 	//-------------------------------------------------------------------------
 	//Constructors
-		
+	//-------------------------------------------------------------------------
 	public ICCSetup() {
 		// Use set methods to build
 	}
@@ -47,30 +55,12 @@ public class ICCSetup {
 	public int getHeight(){
 		return (int)(_height*_compressionRatio);
 	}
-	public int getMaxSegments(){
+	public int getMaxIndex(){
 		return _maxSegments;
 	}
 	public int getMaxSegmentsSaved(){
 		return _maxSegmentsSaved;
 	}
-	public int getPreload(){
-		return _preloadSegments;
-	}
-//	public VideoWriter getVideoWriter (int segmentNumber) throws Exception {
-//		double width = _videoCap.get(Videoio.CV_CAP_PROP_FRAME_WIDTH);
-//		double height = _videoCap.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT);
-//		
-//		Size frameSize = new Size(width,height);
-//		
-//		//open video recorder
-//		VideoWriter recorder = new VideoWriter((FileData.VIDEO_FOLDER.name() + getFileName(segmentNumber)),
-//				_fourCC.toInt(), _fps, frameSize, true);
-//
-//		if(!recorder.isOpened()){
-//			throw new Exception("Failed to open recorder");
-//		}
-//		return recorder;
-//	}
 	public double getSegmentLength(){
 		return _segmentVideoLength;
 	}
@@ -82,9 +72,8 @@ public class ICCSetup {
 		return (int)(_width*_compressionRatio);
 	}
 
-
 	//-------------------------------------------------------------------------
-	//Set Methods
+	//Set Methods: Uses chaining techniques
 	//-------------------------------------------------------------------------
 	public ICCSetup setCompressionRatio(double compressionRatio){
 		_compressionRatio = compressionRatio;
@@ -114,10 +103,6 @@ public class ICCSetup {
 		_maxSegmentsSaved = maxSegmentsInFolder;
 		return this;
 	}
-	public ICCSetup setPreload(int preloadedSegments){
-		_preloadSegments = preloadedSegments;
-		return this;
-	}
 	public ICCSetup setSegmentLength(double seconds){
 		_segmentVideoLength = seconds;
 		return this;
@@ -127,11 +112,14 @@ public class ICCSetup {
 		return this;
 	}
 	
-	
 	//-------------------------------------------------------------------------
-	//Whatever Methods
+	//Private methods
 	//-------------------------------------------------------------------------
-	public void initVideoCapture() throws Exception {
+	/**
+	 * Initializes the VideoCapture object.
+	 * @throws Exception
+	 */
+	private void initVideoCapture() throws Exception {
 		_videoCap = new VideoCapture(_device);
 		_videoCap.set(Videoio.CAP_PROP_FPS, _fps);
 

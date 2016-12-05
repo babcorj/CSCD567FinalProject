@@ -30,7 +30,10 @@ import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
 
 
-/*
+/**
+ * 
+ * @author Ryan Babcock
+ * 
  * The ICCFrameWriter class can be used for multiple purposes. Mainly, it is used
  * to convert a mat, or sequence of mats, into a compressed format and then
  * write to some output. Any device should be able to read the file produced
@@ -39,6 +42,7 @@ import org.opencv.imgcodecs.Imgcodecs;
  * <p>
  * By default, the compression type used is JPG. However, this can be modified
  * by using the setCompressionType method.
+ * 
  */
 public class ICCFrameWriter {
 
@@ -106,7 +110,7 @@ public class ICCFrameWriter {
 	//-------------------------------------------------------------------------
 	
 	/**
-	 * 
+	 * @return	Returns the index positions of each frame.
 	 */
 	public int[] getFrames(){
 		return _frames;
@@ -162,7 +166,7 @@ public class ICCFrameWriter {
 	}
 
 	/**
-	 * Sets the file where the mat pixel values prints to.
+	 * Sets the file where the mat pixel values prints tvideoo.
 	 * 
 	 * @param file	Where the mat pixel values prints to.
 	 * @throws FileNotFoundException

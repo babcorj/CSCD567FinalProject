@@ -1,24 +1,17 @@
 package videoUtility;
 
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-
-import org.opencv.core.Mat;
-
 public class VideoSource extends Thread {
 
-	protected boolean isDone;
-	protected ICCMetadata metadata;
-	protected Mat mat;
-	protected String className;
+	protected boolean _isDone;
+	protected VideoSegmentHeader _vHeader;
+	protected String _className;
 	
 	public VideoSource(){
-		isDone = false;
-		mat = new Mat();
+		_isDone = false;
 	}
 
 	public void end(){
-		System.out.println("Attempting to close " + className + "...");
-		isDone = true;
+		System.out.println("Attempting to close " + _className + "...");
+		_isDone = true;
 	}
 }

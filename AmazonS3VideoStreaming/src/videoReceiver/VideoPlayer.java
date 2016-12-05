@@ -25,38 +25,56 @@ import GNUPlot.GNUScriptWriter;
 import GNUPlot.PlotObject;
 import videoUtility.PerformanceLogger;
 
+/**
+ * 
+ * @author Ryan Babcock
+ * 
+ * This class represents the client-side of the ICC. The S3Downloader grabs
+ * the most recent video specified by the playlist stored in the S3 bucket.
+ * The S3Downloader creates a video segment based on the video data and the
+ * information within the playlist. The video segment is then sent to the
+ * VideoPlayer where the video is displayed using the ICCFrameReader.
+ * 
+ * @version v.0.0.20
+ * @see VideoSource, S3Downloader, PlaylistParser, ICCFrameReader
+ *
+ */
 public class VideoPlayer extends VideoSource {
 
+	//-------------------------------------------------------------------------
+	//Member Variables
+	//-------------------------------------------------------------------------
+	static final long TIME_OFFSET = -25259;
+	
 	private static DisplayFrame _display;
 	private static List<Double> _records;
 	private static PerformanceLogger _logger;
-	private static S3Downloader downloader;
+	private static S3Downloader _downloader;
 	private static SharedQueue<String> _signalQueue;
-	private static String[] _specs = new String[3];//for GNUPlot:
-	//1=Compression, 2=FPS, 3= SegmentLength; taken from setup file on s3
-	
+	private static String[] _specs = new String[3];
+	//_specs: 0=Compression, 1=FPS, 2=SegmentLength; from setup file on S3
 	private VideoStream stream;
 
 	//-------------------------------------------------------------------------
-	//Constructor method
-	
+	//Constructor
+	//-------------------------------------------------------------------------
 	public VideoPlayer() {
 		super();
-		className = "ICC VideoPlayer";
+		_className = "ICC VideoPlayer";
 		_records = new ArrayList<>();
 		stream = new VideoStream();
-		downloader = new S3Downloader(stream);
+		_downloader = new S3Downloader(stream);
 		_signalQueue = new SharedQueue<>(10);
-		downloader.setSignal(_signalQueue);
-		downloader.start();
+		_downloader.setSignal(_signalQueue);
+		_downloader.start();
 	}
 
 	//-------------------------------------------------------------------------
 	//Main
-	
+	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
 		
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+//		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		VideoPlayer player = new VideoPlayer();
 
@@ -68,33 +86,38 @@ public class VideoPlayer extends VideoSource {
 
 	//-------------------------------------------------------------------------
 	//Run method
-	
+	//-------------------------------------------------------------------------
 	@Override
 	public void run() {
 		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
-		
+
 		double fps = Double.parseDouble(_specs[1]);
-		long startTime = System.currentTimeMillis();
 		LinkedList<BufferedImage> frameList;
 		VideoSegment videoSegment = null;
 
 		System.out.println("Starting video player...");
 
-		while (!isDone) {
-			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
-
+		//isDone becomes false when "end()" function is called
+		while (!_isDone) {
+//			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
+//			double timeStarted = (double)((System.currentTimeMillis() - _logger.getStartTime())/1000);
 			try {
+				//Always get most current frame
+				while(stream.size() > 1){
+					stream.getFrame();
+				}
 				videoSegment = stream.getFrame();
-				logDelay(videoSegment);
+				logDelay(videoSegment.getTimeStamp());
 				frameList = videoSegment.getImageList();
+				System.out.println("Playing '" + videoSegment.toString() + "'");
 
 				for(BufferedImage img : frameList){
 					_display.setCurrentFrame(img);
 					Utility.pause((long)(1000/fps));
 				}
 			} catch (Exception e) {
-				if(isDone) continue;
-				System.err.println("VP: Problem reading video file: " + videoSegment.getName());
+				if(_isDone) continue;
+				System.err.println("VP: Problem reading video file: " + videoSegment.toString());
 			}
 		}
 		closeEverything();
@@ -104,7 +127,11 @@ public class VideoPlayer extends VideoSource {
 
 	//-------------------------------------------------------------------------
 	//Private static methods
-	
+	//-------------------------------------------------------------------------
+	/**
+	 * Initializes the display.
+	 * @see FrameDisplay
+	 */
 	private static void initDisplay(){
 		_display = null;
 
@@ -122,40 +149,49 @@ public class VideoPlayer extends VideoSource {
 		System.out.println("Display initiated...");
 	}
 
+	/**
+	 * Initializes logging used by GNUplot. Sends a PerformanceLogger to the
+	 * S3Downloader since both require the same startup time.
+	 * @see PerformanceLogger
+	 */
 	private static void initLogger(){
+
 		String  plog 		= FileData.PLAYER_LOG.print(),
 				logFolder 	= FileData.LOG_DIRECTORY.print(),
-				s3dlog		= FileData.S3DOWNLOADER_LOG.print(),
+				s3log		= FileData.S3DOWNLOADER_LOG.print(),
 				script		= FileData.SCRIPTFILE.print();
-		
-		String millis = _signalQueue.dequeue();
-		PerformanceLogger s3logger = null;
 
-		try{
-			_logger = new PerformanceLogger(plog, logFolder);
-			s3logger = new PerformanceLogger(s3dlog, logFolder);
-
-			_logger.setStartTime(Long.parseLong(millis));
-			s3logger.setStartTime(Long.parseLong(millis));
-
-			writeGNUPlotScript(script, logFolder + plog, logFolder + s3dlog);
-		}
-		catch (IOException ioe){
-			System.err.println("Failed to open performance log");
-		}
-		downloader.setPerformanceLog(s3logger);
-		_signalQueue.enqueue("VP: Log files initialized...");
-		downloader.interrupt();
-	}
-
-	private static void writeGNUPlotScript(String scriptfile, String playerfile, String s3file){
+		long millis = Long.parseLong(_signalQueue.dequeue());
 		_specs[0] = _signalQueue.dequeue();//compression
 		_specs[1] = _signalQueue.dequeue();//FPS
 		_specs[2] = _signalQueue.dequeue();//segmentLength
+
+		if(!FileData.ISLOGGING.isTrue()) return;
+
+		writeGNUPlotScript(logFolder+plog, logFolder+s3log, script);
+		try{
+			_logger = new PerformanceLogger(plog, logFolder);
+			_logger.setStartTime(millis);
+		} catch (IOException ioe){
+			System.err.println("Failed to open performance log");
+		} catch (Exception e){
+			System.err.println("Failed to create VP logger");
+		}
+	}
+	
+	/**
+	 * Creates script based on logged data. Runnable by GNUplot.
+	 * 
+	 * @param scriptfile	The name of the script file.
+	 * @param playerfile	The name of the video player log file.
+	 * @param s3file		The name of the S3 downloader log file.
+	 * @see PerformanceLogger, GNUScriptParameters, GNUScriptWriter
+	 */
+	private static void writeGNUPlotScript(String plog, String s3log, String script){
 		int col1[] = {1, 2};
-		PlotObject runnerPlot = new PlotObject(new File(playerfile).getAbsolutePath(), "Overall Delay", col1);
+		PlotObject runnerPlot = new PlotObject(new File(plog).getAbsolutePath(), "Overall Delay", col1);
 		runnerPlot.setLine("lc rgb '#ff9900' lt 1 lw 2 pt 7 ps 1.5");
-		PlotObject s3Plot = new PlotObject(new File(s3file).getAbsolutePath(), "Frame Delay", col1);
+		PlotObject s3Plot = new PlotObject(new File(s3log).getAbsolutePath(), "Frame Delay", col1);
 		s3Plot.setLine("lc rgb '#009900' lt 1 lw 2 pt 5 ps 1.5");
 		GNUScriptParameters params = new GNUScriptParameters("ICC Client");
 		params.addElement("CompressionRatio(" + _specs[0] + ")");
@@ -167,7 +203,7 @@ public class VideoPlayer extends VideoSource {
 		params.setLabelY("Delay (sec)");
 		
 		try{
-			GNUScriptWriter writer = new GNUScriptWriter(scriptfile, params);
+			GNUScriptWriter writer = new GNUScriptWriter(script, params);
 			writer.write();
 			writer.close();
 		}catch(IOException e){
@@ -177,10 +213,15 @@ public class VideoPlayer extends VideoSource {
 	
 	//-------------------------------------------------------------------------
 	//Private non-static methods
-	
+	//-------------------------------------------------------------------------
+	/**
+	 * Closes all closeable instances created.
+	 */
 	private void closeEverything(){
-		double avg = Calculate.average(_records);
 		try {
+			if(!FileData.ISLOGGING.isTrue()) return;
+			
+			double avg = Calculate.average(_records);
 			_logger.log(String.format("#Avg Delay: " + avg + "\n"));
 			_logger.log(String.format("#StdDev: " + Calculate.standardDeviation(avg, _records)) + "\n");
 			_logger.close();
@@ -189,25 +230,35 @@ public class VideoPlayer extends VideoSource {
 		}
 	}
 	
-	//log time sent vs. time received
-	private void logDelay(VideoSegment videoSegment){
-		double timeOut = (System.currentTimeMillis() - _logger.getTime())/1000
-				- videoSegment.getTimeStamp();
+	/**
+	 * Logs the time the video was sent versus the time the video was received.
+	 * @param videoSegment	The video segment to be played.
+	 */
+	private void logDelay(long timeStamp){
+		if(!FileData.ISLOGGING.isTrue()) return;
+
+		double timeElapsed = (double)((System.currentTimeMillis() + TIME_OFFSET
+				- _logger.getStartTime())/1000);
+//		System.out.println("Elapsed: " + timeElapsed);
+		double videoStart = ((double)(timeStamp - _logger.getStartTime())/1000);
+//		System.out.println("VideoStart: " + videoStart);
+		double delay = timeElapsed - videoStart;
+//		System.out.println("Player(Delay): " + (delay));
 		try {
 			_logger.logTime();
 			_logger.log(" ");
-			_logger.log((timeOut) + "\n");
+			_logger.log((delay));
+			_logger.log("\n");
 		} catch (IOException e) {
-			System.err.println("VP: Failed to log video segment '"
-					+ videoSegment.getName() + "'");
+			System.err.println("VP: Failed to log video segment...");
 		}
-		_records.add(timeOut);
+		_records.add(delay);
 	}
 }
 
 //-----------------------------------------------------------------------------
 //Shutdown Hook
-
+//-------------------------------------------------------------------------
 class VideoPlayerShutdownHook extends Thread {
 	private VideoPlayer _player;
 	

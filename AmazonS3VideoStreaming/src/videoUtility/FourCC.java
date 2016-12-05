@@ -8,7 +8,6 @@ package videoUtility;
  * sgoldsmith@codeferm.com
  */
 
-
 /**
  * A "four character code" (4CC), as used in AVI files.
  *

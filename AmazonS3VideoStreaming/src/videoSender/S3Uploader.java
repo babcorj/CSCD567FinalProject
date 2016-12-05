@@ -3,6 +3,8 @@ package videoSender;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import com.amazonaws.AmazonClientException;
@@ -14,34 +16,47 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.Upload;
 
 import videoUtility.FileData;
 import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
+import videoUtility.Utility;
 import videoUtility.VideoSegment;
+
+/**
+ * 
+ * @author Ryan Babcock
+ * 
+ * Used to upload video segments, playlist, and setup file to Amazon S3.
+ * @see ICCRunner
+ */
 
 public class S3Uploader extends S3UserStream {
 
-	private String key;
+	private long _startTime;
 	private SharedQueue<VideoSegment> _stream;
-	private SharedQueue<byte[]> _indexStream;
 	private SharedQueue<String> _signalQueue;
-	private AmazonS3 s3;
+	private AmazonS3 _s3;
 	private PerformanceLogger _logger;
+	private TransferManager _transferMGMT;
 
 	//-------------------------------------------------------------------------
 	//Constructor
-	
+	//-------------------------------------------------------------------------	
 	public S3Uploader(SharedQueue<VideoSegment> theque){
 		_stream = theque;
 	}
 
 	//-------------------------------------------------------------------------
 	//Run method
-	
+	//-------------------------------------------------------------------------
 	public void run() {
 
 		/*
@@ -62,55 +77,54 @@ public class S3Uploader extends S3UserStream {
 			credentials = new ProfileCredentialsProvider("default").getCredentials();
 		} catch (Exception e) {
 			throw new AmazonClientException(
-					"Cannot load the credentials from the credential profiles file. " +
-							"Please make sure that your credentials file is at the correct " +
-							"location (/users/username/.aws/credentials), and is in valid format.",
-							e);
+				"Cannot load the credentials from the credential profiles file. " +
+				"Please make sure that your credentials file is at the correct " +
+				"location (/users/username/.aws/credentials), and is in valid format.", e);
 		}
 
-		s3 = new AmazonS3Client(credentials);
+		_s3 = new AmazonS3Client(credentials);
 		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-		s3.setRegion(usWest2);
+		_s3.setRegion(usWest2);
+		_transferMGMT = new TransferManager(_s3);
 
-		System.out.println("===========================================");
-		System.out.println("Getting Started with Amazon S3");
-		System.out.println("===========================================\n");
+		System.out.println("Amazon S3: Preparation complete!");
+
+		//receive same start time
+		_startTime = Long.parseLong(_signalQueue.dequeue());
 
 		//let ICCRunner know we're ready for the setup file
-		_signalQueue.enqueue("S3: Waiting for setup file...");
-
-		synchronized(this){//receive and upload setup file
-			String setupfile = null;
-			while(setupfile == null){
-				try {
-					wait();
-				} catch (InterruptedException e1) {
-					setupfile = _signalQueue.dequeue();
-				}
+		synchronized(_signalQueue){
+			_signalQueue.enqueue("S3: Waiting for setup file...");
+			try{
+				_signalQueue.wait();				
+			}catch(InterruptedException e){
+				//empty
 			}
-			uploadSetupFile(setupfile);
-			System.out.println("S3: Setup file successfully sent to S3");
 		}
 
-		while(!isDone || !_stream.isEmpty()){
+		String setupfile = _signalQueue.dequeue();
+
+		uploadFile(_transferMGMT, setupfile);
+		System.out.println("S3: Setup file successfully sent to S3");
+
+		//Continue to send video segments until end is called and stream is empty
+		while(!_isDone || !_stream.isEmpty()){
 			ObjectMetadata info = new ObjectMetadata();
 			VideoSegment segment;
 			
 			try { //start uploading video stream
-				double timeReceived = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+				double timeReceived = (double)((System.currentTimeMillis() - _startTime/1000));
 				segment = _stream.dequeue();
-				key = segment.getName();
+				_key = segment.toString();
 				info.setContentLength(segment.size());
-				System.out.println("Content length: " + info.getContentLength());
-//				info.setContentType("video/x-msvideo");
-				ByteArrayInputStream bin = new ByteArrayInputStream(segment.getData());
-				System.out.println("S3: Uploading file '" + key + "'");
-				s3.putObject(new PutObjectRequest(bucketName, key, bin, info));
-
+				ByteArrayInputStream bin = new ByteArrayInputStream(segment.data());
+				
+				System.out.println("S3: Uploading file '" + _key + "'...");
+				
+				uploadSegment(_transferMGMT, bin, _key, segment.size());
 				logUpload(timeReceived);
-				updateIndexFile();
 
-				key = null;
+				_key = null;
 
 			} catch (AmazonServiceException ase) {
 				System.out.println("Caught an AmazonServiceException, which means your request made it "
@@ -125,67 +139,107 @@ public class S3Uploader extends S3UserStream {
 						+ "a serious internal problem while trying to communicate with S3, "
 						+ "such as not being able to access the network.");
 				System.out.println("Error Message: " + ace.getMessage());
-				System.out.println("Current file to upload: " + key);
+				System.out.println("Current file to upload: " + _key);
 			} catch (NoSuchElementException ie){
 				//happens during dequeue when program exits
 			} catch (Exception e){
+				e.printStackTrace();
 				System.err.println(e);
 			}
 		}//end while
 
+		closeEverything();
+		System.out.println("S3 Uploader successfully closed");
+	}//end video stream
+
+	//-------------------------------------------------------------------------
+	//Set methods: All methods must be called before run.
+	//-------------------------------------------------------------------------
+	public void setLogger(PerformanceLogger logger){
+		_logger = logger;
+	}
+	public void setSignal(SharedQueue<String> signal){
+		_signalQueue = signal;
+	}
+	
+	//-------------------------------------------------------------------------
+	//Public methods
+	//-------------------------------------------------------------------------
+	/**
+	 * Deletes the specified key within the S3 bucket.
+	 * @param file		The file to be deleted from S3.
+	 */
+	public void delete(String file){
+		while(true){
+			try{
+				_s3.deleteObject(new DeleteObjectRequest(_bucketName, file));
+				break;
+			} catch(Exception e){
+//				e.printStackTrace();
+				System.err.println("Deletion failed: " + file);
+				continue;
+			}
+		}
+		System.out.println("S3: Successfully deleted '"+file+"' from '" + _bucketName + "'");
+	}
+	
+	/**
+	 * Used to end the run method.
+	 */
+	public void end(){
+		if(_isDone) return;
+		System.out.println("Attempting to close S3 Uploader...");
+		while(!_stream.isEmpty()){
+			_stream.dequeue();
+		}
+		_isDone = true;
+	}
+
+	public boolean isDeleted(String file){
+		return !_s3.doesObjectExist(_bucketName, file);
+	}
+	
+	//-------------------------------------------------------------------------
+	//Private methods
+	//-------------------------------------------------------------------------	
+	private void closeEverything(){
+		deleteAllSegments();
+		if(!FileData.ISLOGGING.isTrue()) return;
 		try{
 			_logger.close();
 			uploadLogFiles();
 		} catch(IOException e){
 			System.err.println(e);
 		}
-		System.out.println("S3 Uploader successfully closed");
-	}//end video stream
+	}
+	
+	private void deleteAllSegments(){
+		String prefix = FileData.VIDEO_PREFIX.print();
+		ObjectListing listing = _s3.listObjects(_bucketName, prefix);
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 
-	//-------------------------------------------------------------------------
-	//Public methods
-	
-	public void delete(String file){
-		try{
-			s3.deleteObject(new DeleteObjectRequest(bucketName, file));
-		} catch(Exception e){
-			e.printStackTrace();
+		while (listing.isTruncated()) {
+			   listing = _s3.listNextBatchOfObjects(listing);
+			   summaries.addAll(listing.getObjectSummaries());
 		}
-		System.out.println("Successfully deleted '"+file+"' from S3");
-	}
-	
-	public void end(){
-		if(isDone) return;
-		System.out.println("Attempting to close S3 Uploader...");
-		while(!_stream.isEmpty()){
-			_stream.dequeue();
+		for(int i = 0; i < summaries.size(); i++){
+			S3ObjectSummary s = summaries.get(i);
+			String objKey = s.getKey();
+			delete(objKey);
 		}
-		isDone = true;
 	}
-	
-	public void setIndexStream(SharedQueue<byte[]> indexStream){
-		_indexStream = indexStream;
-	}
-	
-	public void setLogger(PerformanceLogger logger){
-		_logger = logger;
-	}
-	
-	public void setKey(String fout){
-		key = fout;
-	}
-	
-	public void setSignal(SharedQueue<String> signal){
-		_signalQueue = signal;
-	}
-
-	//-------------------------------------------------------------------------
-	//Private methods
-	
+		
+	/**
+	 * Logs when the video segment was received.
+	 * @param timeReceived		The time video was received, relative to start
+	 * 							time specified in setup file.
+	 */
 	private void logUpload(double timeReceived){
+		if(!FileData.ISLOGGING.isTrue()) return;
+		
 		_logger.logTime();
 
-		double curRunTime = (double)((System.currentTimeMillis() - _logger.getTime())/1000);
+		double curRunTime = (double)((System.currentTimeMillis() - _startTime/1000));
 		double value = curRunTime - timeReceived;
 
 		try {
@@ -196,41 +250,71 @@ public class S3Uploader extends S3UserStream {
 			System.err.println("S3: Failed to log upload!");
 		}
 	}
-
-	private void updateIndexFile() throws Exception {
-		byte[] data = _indexStream.dequeue();
-		ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
-		ObjectMetadata metadata = new ObjectMetadata();
-		metadata.setContentLength(data.length);
-		s3.putObject(new PutObjectRequest(bucketName,
-				FileData.INDEXFILE.print(), inputStream, metadata));
-		System.out.println("S3: Uploaded playlist!");
-	}
-
+	
+	/**
+	 * 
+	 * @throws IOException
+	 */
 	private void uploadLogFiles() throws IOException {
+		if(!FileData.ISLOGGING.isTrue()) return;
+		
 		String runnerLog = _signalQueue.dequeue();
 		String runnerLogPath = _signalQueue.dequeue();
 		String s3Log = _logger.getFileName();
 		String s3LogPath = _logger.getFilePath();
-		s3.putObject(new PutObjectRequest(bucketName, runnerLog, new File(runnerLogPath)));
-		s3.putObject(new PutObjectRequest(bucketName, s3Log, new File(s3LogPath)));
+		_s3.putObject(new PutObjectRequest(_bucketName, runnerLog, new File(runnerLogPath)));
+		_s3.putObject(new PutObjectRequest(_bucketName, s3Log, new File(s3LogPath)));
 	}
 	
-	private void uploadSetupFile(String setupfile){
+	/**
+	 * 
+	 * @param transferMGMT
+	 * @param file
+	 * 
+	 * WARNING: If unable to upload, will spin forever!
+	 */
+	private void uploadFile(TransferManager transferMGMT, String file){
 		try{
-			System.out.println("SETUP: " + setupfile);
-			s3.putObject(new PutObjectRequest(bucketName, setupfile, new File(setupfile)));
+			PutObjectRequest request = new PutObjectRequest(_bucketName, file, new File(file));
+			Upload upload = transferMGMT.upload(request);
+			while(!upload.isDone()){
+				Utility.pause(10);
+			}
 		} catch(Exception e){
-			System.err.println("S3: Failed to upload setup file!");
+			System.err.println("S3: Failed to upload file: " + file);
 			e.printStackTrace();
 			System.exit(-1);
 		}
+	}
+	
+	/**
+	 * 
+	 * @param transferMGMT
+	 * @param input
+	 * @param key
+	 * @param size
+	 * 
+	 * WARNING: If unable to upload, will spin forever!
+	 */
+	private void uploadSegment(TransferManager transferMGMT, InputStream input, String key, long size){
+		ObjectMetadata info = new ObjectMetadata();
+		info.setContentLength(size);
+		PutObjectRequest request = new PutObjectRequest(_bucketName, key, input, info);
+		Upload upload = transferMGMT.upload(request);
+		
+		while(!upload.isDone()){
+			Utility.pause(10);
+		}
+		System.out.println("S3: Uploaded: '" + key + "'");
 	}
 }
 
 //-----------------------------------------------------------------------------
 //Shutdown Hook
 
+/**
+ *
+ */
 class S3UploaderShutdownHook extends Thread {
 	private S3Uploader _uploader;
 

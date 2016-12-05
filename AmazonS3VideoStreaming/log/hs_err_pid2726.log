@@ -1,0 +1,875 @@
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  Internal Error (os_linux_zero.cpp:285), pid=2726, tid=1415709792
+#  fatal error: caught unhandled signal 11
+#
+# JRE version: OpenJDK Runtime Environment (7.0_95) (build 1.7.0_95-b00)
+# Java VM: OpenJDK Zero VM (24.95-b01 mixed mode linux-arm )
+# Derivative: IcedTea 2.6.4
+# Distribution: Raspbian GNU/Linux 8.0 (jessie), package 7u95-2.6.4-1~deb8u1+rpi1
+# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try "ulimit -c unlimited" before starting Java again
+#
+# If you would like to submit a bug report, please include
+# instructions on how to reproduce the bug and visit:
+#   http://icedtea.classpath.org/bugzilla
+#
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x75b60658):  VMThread [stack: 0x545a2000,0x54621000] [id=2732]
+
+Stack: [0x545a2000,0x54621000],  sp=0x5461f6c4,  free space=501k
+VM_Operation (0x504b2ef8): GenCollectForAllocation, mode: safepoint, requested by thread 0x53e01e10
+
+
+---------------  P R O C E S S  ---------------
+
+Java Threads: ( => current thread )
+  0x0151af38 JavaThread "s3-transfer-manager-worker-10" [_thread_blocked, id=2757, stack(0x4ef60000,0x4f100000)]
+  0x015197c0 JavaThread "s3-transfer-manager-worker-9" [_thread_blocked, id=2756, stack(0x4f100000,0x4f2a0000)]
+  0x01514598 JavaThread "s3-transfer-manager-worker-8" [_thread_blocked, id=2755, stack(0x4f2a0000,0x4f440000)]
+  0x015130a0 JavaThread "s3-transfer-manager-worker-7" [_thread_blocked, id=2754, stack(0x4f440000,0x4f5e0000)]
+  0x01511ba8 JavaThread "s3-transfer-manager-worker-6" [_thread_blocked, id=2753, stack(0x4f5e0000,0x4f780000)]
+  0x015107b0 JavaThread "s3-transfer-manager-worker-5" [_thread_blocked, id=2752, stack(0x4f780000,0x4f920000)]
+  0x0150f320 JavaThread "s3-transfer-manager-worker-4" [_thread_blocked, id=2751, stack(0x4f920000,0x4fac0000)]
+  0x0150de90 JavaThread "s3-transfer-manager-worker-3" [_thread_blocked, id=2750, stack(0x4fac0000,0x4fc60000)]
+  0x01518e08 JavaThread "s3-transfer-manager-worker-2" [_thread_blocked, id=2749, stack(0x4fc60000,0x4fe00000)]
+  0x014a0d10 JavaThread "s3-transfer-manager-worker-1" [_thread_blocked, id=2748, stack(0x500a0000,0x50240000)]
+  0x75b06948 JavaThread "DestroyJavaVM" [_thread_blocked, id=2731, stack(0x75cec000,0x75e8b000)]
+  0x50c7dd08 JavaThread "Thread-0" [_thread_in_native, id=2747, stack(0x50240000,0x503e0000)]
+  0x53e01e10 JavaThread "AWT-EventQueue-0" [_thread_blocked, id=2744, stack(0x503e0000,0x50580000)]
+  0x50c7c860 JavaThread "AWT-Shutdown" [_thread_blocked, id=2743, stack(0x50580000,0x50720000)]
+  0x50c54a20 JavaThread "Thread-4" [_thread_blocked, id=2742, stack(0x50720000,0x508c0000)]
+  0x50c370a8 JavaThread "AWT-XAWT" daemon [_thread_in_native, id=2741, stack(0x508c0000,0x50a60000)]
+  0x52df8910 JavaThread "Java2D Disposer" daemon [_thread_blocked, id=2740, stack(0x50a60000,0x50c00000)]
+  0x0146b0c0 JavaThread "java-sdk-http-connection-reaper" daemon [_thread_blocked, id=2739, stack(0x5164d000,0x517ed000)]
+  0x52d86e80 JavaThread "Thread-1" [_thread_blocked, id=2738, stack(0x5205b000,0x521fb000)]
+  0x75b77850 JavaThread "Service Thread" daemon [_thread_blocked, id=2736, stack(0x53760000,0x53900000)]
+  0x75b75df8 JavaThread "Signal Dispatcher" daemon [_thread_blocked, id=2735, stack(0x53ad7000,0x53c77000)]
+  0x75b644f8 JavaThread "Finalizer" daemon [_thread_blocked, id=2734, stack(0x53f60000,0x54100000)]
+  0x75b62f80 JavaThread "Reference Handler" daemon [_thread_blocked, id=2733, stack(0x54260000,0x54400000)]
+
+Other Threads:
+=>0x75b60658 VMThread [stack: 0x545a2000,0x54621000] [id=2732]
+  0x75b794e8 WatcherThread [stack: 0x54522000,0x545a1000] [id=2737]
+
+VM state:synchronizing (normal execution)
+
+VM Mutex/Monitor currently owned by a thread:  ([mutex/lock_event])
+[0x75b05af0] Safepoint_lock - owner thread: 0x75b60658
+[0x75b05b58] Threads_lock - owner thread: 0x75b60658
+[0x75b05f68] Heap_lock - owner thread: 0x53e01e10
+
+Heap
+ def new generation   total 11520K, used 10348K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  99% used [0x54a00000, 0x553ff8d8, 0x55400000)
+  from space 1280K,   8% used [0x55540000, 0x5555b820, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 9542K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  37% used [0x5da00000, 0x5e351a80, 0x5e351c00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+
+Card table byte_map: [0x54907000,0x54a00000] byte_map_base: 0x54662000
+
+Polling page: 0x76f3c000
+
+Code Cache  [0x73ae8000, 0x73b10000, 0x75ae8000)
+ total_blobs=351 nmethods=0 adapters=344 free_code_cache=32681Kb largest_free_block=33465408
+
+Compilation events (0 events):
+No events
+
+GC Heap History (10 events):
+Event: 709.071 GC heap before
+{Heap before GC invocations=2814 (full 219):
+ def new generation   total 11520K, used 10569K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  99% used [0x54a00000, 0x553ffa70, 0x55400000)
+  from space 1280K,  25% used [0x55400000, 0x55452a30, 0x55540000)
+  to   space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+ tenured generation   total 25472K, used 22002K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  86% used [0x5da00000, 0x5ef7c810, 0x5ef7ca00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+Event: 709.075 GC heap after
+Heap after GC invocations=2815 (full 219):
+ def new generation   total 11520K, used 331K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,   0% used [0x54a00000, 0x54a00000, 0x55400000)
+  from space 1280K,  25% used [0x55540000, 0x55592c50, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 23246K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  91% used [0x5da00000, 0x5f0b38b0, 0x5f0b3a00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+}
+Event: 709.415 GC heap before
+{Heap before GC invocations=2815 (full 219):
+ def new generation   total 11520K, used 10569K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  99% used [0x54a00000, 0x553ff9e8, 0x55400000)
+  from space 1280K,  25% used [0x55540000, 0x55592c50, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 23246K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  91% used [0x5da00000, 0x5f0b38b0, 0x5f0b3a00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+Event: 709.420 GC heap after
+Heap after GC invocations=2816 (full 219):
+ def new generation   total 11520K, used 331K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,   0% used [0x54a00000, 0x54a00000, 0x55400000)
+  from space 1280K,  25% used [0x55400000, 0x55452e70, 0x55540000)
+  to   space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+ tenured generation   total 25472K, used 24490K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  96% used [0x5da00000, 0x5f1ea950, 0x5f1eaa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+}
+Event: 709.762 GC heap before
+{Heap before GC invocations=2816 (full 219):
+ def new generation   total 11520K, used 10570K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  99% used [0x54a00000, 0x553ff9e0, 0x55400000)
+  from space 1280K,  25% used [0x55400000, 0x55452e70, 0x55540000)
+  to   space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+ tenured generation   total 25472K, used 24490K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  96% used [0x5da00000, 0x5f1ea950, 0x5f1eaa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+Event: 709.962 GC heap after
+Heap after GC invocations=2817 (full 220):
+ def new generation   total 11520K, used 0K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,   0% used [0x54a00000, 0x54a00000, 0x55400000)
+  from space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 8298K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  32% used [0x5da00000, 0x5e21a9e0, 0x5e21aa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+}
+Event: 710.298 GC heap before
+{Heap before GC invocations=2817 (full 220):
+ def new generation   total 11520K, used 9059K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  88% used [0x54a00000, 0x552d8da0, 0x55400000)
+  from space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 8298K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  32% used [0x5da00000, 0x5e21a9e0, 0x5e21aa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+Event: 710.301 GC heap after
+Heap after GC invocations=2818 (full 220):
+ def new generation   total 11520K, used 109K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,   0% used [0x54a00000, 0x54a00000, 0x55400000)
+  from space 1280K,   8% used [0x55400000, 0x5541b5a0, 0x55540000)
+  to   space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+ tenured generation   total 25472K, used 8298K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  32% used [0x5da00000, 0x5e21a9e0, 0x5e21aa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+}
+Event: 710.631 GC heap before
+{Heap before GC invocations=2818 (full 220):
+ def new generation   total 11520K, used 10348K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,  99% used [0x54a00000, 0x553ffb00, 0x55400000)
+  from space 1280K,   8% used [0x55400000, 0x5541b5a0, 0x55540000)
+  to   space 1280K,   0% used [0x55540000, 0x55540000, 0x55680000)
+ tenured generation   total 25472K, used 8298K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  32% used [0x5da00000, 0x5e21a9e0, 0x5e21aa00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+Event: 710.635 GC heap after
+Heap after GC invocations=2819 (full 220):
+ def new generation   total 11520K, used 110K [0x54a00000, 0x55680000, 0x5da00000)
+  eden space 10240K,   0% used [0x54a00000, 0x54a00000, 0x55400000)
+  from space 1280K,   8% used [0x55540000, 0x5555b820, 0x55680000)
+  to   space 1280K,   0% used [0x55400000, 0x55400000, 0x55540000)
+ tenured generation   total 25472K, used 9542K [0x5da00000, 0x5f2e0000, 0x6fa00000)
+   the space 25472K,  37% used [0x5da00000, 0x5e351a80, 0x5e351c00, 0x5f2e0000)
+ compacting perm gen  total 16640K, used 16429K [0x6fa00000, 0x70a40000, 0x73a00000)
+   the space 16640K,  98% used [0x6fa00000, 0x70a0b448, 0x70a0b600, 0x70a40000)
+No shared spaces configured.
+}
+
+Deoptimization events (0 events):
+No events
+
+Internal exceptions (10 events):
+Event: 696.893 Thread 0x50c8ace0 Threw 0x55318a00 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 696.894 Thread 0x50c8ace0 Threw 0x553204a0 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 701.883 Thread 0x0151af38 Threw 0x5511d5d8 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 701.884 Thread 0x0151af38 Threw 0x55124e98 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 701.891 Thread 0x50c8ace0 Threw 0x55152658 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 701.893 Thread 0x50c8ace0 Threw 0x55158530 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 706.882 Thread 0x014a0d10 Threw 0x550f5010 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 706.884 Thread 0x014a0d10 Threw 0x550fdee8 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 706.891 Thread 0x50c8ace0 Threw 0x5512b3d8 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+Event: 706.893 Thread 0x50c8ace0 Threw 0x551312c0 at /build/openjdk-7-LyTTnT/openjdk-7-7u95-2.6.4/build/openjdk/hotspot/src/share/vm/prims/jni.cpp:747
+
+Events (10 events):
+Event: 709.076 Executing VM operation: GenCollectForAllocation done
+Event: 709.415 Executing VM operation: GenCollectForAllocation
+Event: 709.420 Executing VM operation: GenCollectForAllocation done
+Event: 709.762 Executing VM operation: GenCollectForAllocation
+Event: 709.962 Executing VM operation: GenCollectForAllocation done
+Event: 710.293 Executing VM operation: GenCollectForAllocation
+Event: 710.301 Executing VM operation: GenCollectForAllocation done
+Event: 710.631 Executing VM operation: GenCollectForAllocation
+Event: 710.635 Executing VM operation: GenCollectForAllocation done
+Event: 710.977 Executing VM operation: GenCollectForAllocation
+
+
+Dynamic libraries:
+00010000-00011000 r-xp 00000000 b3:07 286996     /usr/lib/jvm/java-7-openjdk-armhf/jre/bin/java
+00020000-00021000 r--p 00000000 b3:07 286996     /usr/lib/jvm/java-7-openjdk-armhf/jre/bin/java
+00021000-00022000 rw-p 00001000 b3:07 286996     /usr/lib/jvm/java-7-openjdk-armhf/jre/bin/java
+011b0000-01561000 rw-p 00000000 00:00 0          [heap]
+4edc0000-4edc3000 ---p 00000000 00:00 0 
+4edc3000-4ef60000 rwxp 00000000 00:00 0 
+4ef60000-4ef63000 ---p 00000000 00:00 0 
+4ef63000-4f100000 rwxp 00000000 00:00 0          [stack:2757]
+4f100000-4f103000 ---p 00000000 00:00 0 
+4f103000-4f2a0000 rwxp 00000000 00:00 0          [stack:2756]
+4f2a0000-4f2a3000 ---p 00000000 00:00 0 
+4f2a3000-4f440000 rwxp 00000000 00:00 0          [stack:2755]
+4f440000-4f443000 ---p 00000000 00:00 0 
+4f443000-4f5e0000 rwxp 00000000 00:00 0          [stack:2754]
+4f5e0000-4f5e3000 ---p 00000000 00:00 0 
+4f5e3000-4f780000 rwxp 00000000 00:00 0          [stack:2753]
+4f780000-4f783000 ---p 00000000 00:00 0 
+4f783000-4f920000 rwxp 00000000 00:00 0          [stack:2752]
+4f920000-4f923000 ---p 00000000 00:00 0 
+4f923000-4fac0000 rwxp 00000000 00:00 0          [stack:2751]
+4fac0000-4fac3000 ---p 00000000 00:00 0 
+4fac3000-4fc60000 rwxp 00000000 00:00 0          [stack:2750]
+4fc60000-4fc63000 ---p 00000000 00:00 0 
+4fc63000-4fe00000 rwxp 00000000 00:00 0          [stack:2749]
+4fe00000-4fecc000 rw-p 00000000 00:00 0 
+4fecc000-4ff00000 ---p 00000000 00:00 0 
+4ff45000-4ffd5000 rw-s 00000000 00:05 3538956    /SYSV00000000 (deleted)
+4ffd5000-4ffd9000 r-xp 00000000 b3:07 677391     /lib/arm-linux-gnueabihf/libnss_dns-2.19.so
+4ffd9000-4ffe8000 ---p 00004000 b3:07 677391     /lib/arm-linux-gnueabihf/libnss_dns-2.19.so
+4ffe8000-4ffe9000 r--p 00003000 b3:07 677391     /lib/arm-linux-gnueabihf/libnss_dns-2.19.so
+4ffe9000-4ffea000 rw-p 00004000 b3:07 677391     /lib/arm-linux-gnueabihf/libnss_dns-2.19.so
+4ffea000-5000f000 rw-p 00000000 00:00 0 
+5000f000-50033000 rw-s 0006c000 00:06 1546       /dev/video0
+50033000-50057000 rw-s 00048000 00:06 1546       /dev/video0
+50057000-5007b000 rw-s 00024000 00:06 1546       /dev/video0
+5007b000-500a0000 rw-p 00000000 00:00 0 
+500a0000-500a3000 ---p 00000000 00:00 0 
+500a3000-50240000 rwxp 00000000 00:00 0          [stack:2748]
+50240000-50243000 ---p 00000000 00:00 0 
+50243000-503e0000 rwxp 00000000 00:00 0          [stack:2747]
+503e0000-503e3000 ---p 00000000 00:00 0 
+503e3000-50580000 rwxp 00000000 00:00 0          [stack:2744]
+50580000-50583000 ---p 00000000 00:00 0 
+50583000-50720000 rwxp 00000000 00:00 0          [stack:2743]
+50720000-50723000 ---p 00000000 00:00 0 
+50723000-508c0000 rwxp 00000000 00:00 0          [stack:2742]
+508c0000-508c3000 ---p 00000000 00:00 0 
+508c3000-50a60000 rwxp 00000000 00:00 0          [stack:2741]
+50a60000-50a63000 ---p 00000000 00:00 0 
+50a63000-50c00000 rwxp 00000000 00:00 0          [stack:2740]
+50c00000-50cfd000 rw-p 00000000 00:00 0 
+50cfd000-50d00000 ---p 00000000 00:00 0 
+50d0e000-50d10000 r-xp 00000000 b3:07 672932     /lib/arm-linux-gnueabihf/libnss_mdns4_minimal.so.2
+50d10000-50d17000 ---p 00002000 b3:07 672932     /lib/arm-linux-gnueabihf/libnss_mdns4_minimal.so.2
+50d17000-50d18000 r--p 00001000 b3:07 672932     /lib/arm-linux-gnueabihf/libnss_mdns4_minimal.so.2
+50d18000-50d19000 rw-p 00002000 b3:07 672932     /lib/arm-linux-gnueabihf/libnss_mdns4_minimal.so.2
+50d19000-50d3d000 rw-s 00000000 00:06 1546       /dev/video0
+50d3d000-50d71000 r-xp 00000000 b3:07 156211     /usr/lib/arm-linux-gnueabihf/libjpeg.so.62.1.0
+50d71000-50d80000 ---p 00034000 b3:07 156211     /usr/lib/arm-linux-gnueabihf/libjpeg.so.62.1.0
+50d80000-50d81000 r--p 00033000 b3:07 156211     /usr/lib/arm-linux-gnueabihf/libjpeg.so.62.1.0
+50d81000-50d82000 rw-p 00034000 b3:07 156211     /usr/lib/arm-linux-gnueabihf/libjpeg.so.62.1.0
+50d82000-50d92000 rw-p 00000000 00:00 0 
+50d92000-50d9b000 r-xp 00000000 b3:07 286928     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjavajpeg.so
+50d9b000-50daa000 ---p 00009000 b3:07 286928     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjavajpeg.so
+50daa000-50dab000 r--p 00008000 b3:07 286928     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjavajpeg.so
+50dab000-50dac000 rw-p 00009000 b3:07 286928     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjavajpeg.so
+50dac000-50db0000 r-xp 00000000 b3:07 156141     /usr/lib/arm-linux-gnueabihf/libXfixes.so.3.1.0
+50db0000-50db7000 ---p 00004000 b3:07 156141     /usr/lib/arm-linux-gnueabihf/libXfixes.so.3.1.0
+50db7000-50db8000 r--p 00003000 b3:07 156141     /usr/lib/arm-linux-gnueabihf/libXfixes.so.3.1.0
+50db8000-50db9000 rw-p 00004000 b3:07 156141     /usr/lib/arm-linux-gnueabihf/libXfixes.so.3.1.0
+50db9000-50dc1000 r-xp 00000000 b3:07 156771     /usr/lib/arm-linux-gnueabihf/libXcursor.so.1.0.2
+50dc1000-50dc8000 ---p 00008000 b3:07 156771     /usr/lib/arm-linux-gnueabihf/libXcursor.so.1.0.2
+50dc8000-50dc9000 r--p 00007000 b3:07 156771     /usr/lib/arm-linux-gnueabihf/libXcursor.so.1.0.2
+50dc9000-50dca000 rw-p 00008000 b3:07 156771     /usr/lib/arm-linux-gnueabihf/libXcursor.so.1.0.2
+50dca000-50e05000 r-xp 00000000 b3:07 673044     /lib/arm-linux-gnueabihf/libdbus-1.so.3.8.13
+50e05000-50e14000 ---p 0003b000 b3:07 673044     /lib/arm-linux-gnueabihf/libdbus-1.so.3.8.13
+50e14000-50e15000 r--p 0003a000 b3:07 673044     /lib/arm-linux-gnueabihf/libdbus-1.so.3.8.13
+50e15000-50e16000 rw-p 0003b000 b3:07 673044     /lib/arm-linux-gnueabihf/libdbus-1.so.3.8.13
+50e16000-50e77000 r-xp 00000000 b3:07 156566     /usr/lib/arm-linux-gnueabihf/libgmp.so.10.2.0
+50e77000-50e86000 ---p 00061000 b3:07 156566     /usr/lib/arm-linux-gnueabihf/libgmp.so.10.2.0
+50e86000-50e87000 r--p 00060000 b3:07 156566     /usr/lib/arm-linux-gnueabihf/libgmp.so.10.2.0
+50e87000-50e88000 rw-p 00061000 b3:07 156566     /usr/lib/arm-linux-gnueabihf/libgmp.so.10.2.0
+50e88000-50eaf000 r-xp 00000000 b3:07 142372     /usr/lib/arm-linux-gnueabihf/libhogweed.so.2.5
+50eaf000-50ebf000 ---p 00027000 b3:07 142372     /usr/lib/arm-linux-gnueabihf/libhogweed.so.2.5
+50ebf000-50ec0000 r--p 00027000 b3:07 142372     /usr/lib/arm-linux-gnueabihf/libhogweed.so.2.5
+50ec0000-50ec1000 rw-p 00028000 b3:07 142372     /usr/lib/arm-linux-gnueabihf/libhogweed.so.2.5
+50ec1000-50ef0000 r-xp 00000000 b3:07 148936     /usr/lib/arm-linux-gnueabihf/libnettle.so.4.7
+50ef0000-50eff000 ---p 0002f000 b3:07 148936     /usr/lib/arm-linux-gnueabihf/libnettle.so.4.7
+50eff000-50f00000 r--p 0002e000 b3:07 148936     /usr/lib/arm-linux-gnueabihf/libnettle.so.4.7
+50f00000-50f01000 rw-p 0002f000 b3:07 148936     /usr/lib/arm-linux-gnueabihf/libnettle.so.4.7
+50f01000-50f0f000 r-xp 00000000 b3:07 155129     /usr/lib/arm-linux-gnueabihf/libtasn1.so.6.3.2
+50f0f000-50f1f000 ---p 0000e000 b3:07 155129     /usr/lib/arm-linux-gnueabihf/libtasn1.so.6.3.2
+50f1f000-50f20000 r--p 0000e000 b3:07 155129     /usr/lib/arm-linux-gnueabihf/libtasn1.so.6.3.2
+50f20000-50f21000 rw-p 0000f000 b3:07 155129     /usr/lib/arm-linux-gnueabihf/libtasn1.so.6.3.2
+50f21000-50f4d000 r-xp 00000000 b3:07 156574     /usr/lib/arm-linux-gnueabihf/libp11-kit.so.0.0.0
+50f4d000-50f5c000 ---p 0002c000 b3:07 156574     /usr/lib/arm-linux-gnueabihf/libp11-kit.so.0.0.0
+50f5c000-50f61000 r--p 0002b000 b3:07 156574     /usr/lib/arm-linux-gnueabihf/libp11-kit.so.0.0.0
+50f61000-50f62000 rw-p 00030000 b3:07 156574     /usr/lib/arm-linux-gnueabihf/libp11-kit.so.0.0.0
+50f62000-50f64000 r-xp 00000000 b3:07 672966     /lib/arm-linux-gnueabihf/libkeyutils.so.1.5
+50f64000-50f6b000 ---p 00002000 b3:07 672966     /lib/arm-linux-gnueabihf/libkeyutils.so.1.5
+50f6b000-50f6c000 r--p 00001000 b3:07 672966     /lib/arm-linux-gnueabihf/libkeyutils.so.1.5
+50f6c000-50f6d000 rw-p 00002000 b3:07 672966     /lib/arm-linux-gnueabihf/libkeyutils.so.1.5
+50f6d000-50f75000 r-xp 00000000 b3:07 156733     /usr/lib/arm-linux-gnueabihf/libkrb5support.so.0.1
+50f75000-50f84000 ---p 00008000 b3:07 156733     /usr/lib/arm-linux-gnueabihf/libkrb5support.so.0.1
+50f84000-50f85000 r--p 00007000 b3:07 156733     /usr/lib/arm-linux-gnueabihf/libkrb5support.so.0.1
+50f85000-50f86000 rw-p 00008000 b3:07 156733     /usr/lib/arm-linux-gnueabihf/libkrb5support.so.0.1
+50f86000-50f88000 r-xp 00000000 b3:07 672834     /lib/arm-linux-gnueabihf/libcom_err.so.2.1
+50f88000-50f97000 ---p 00002000 b3:07 672834     /lib/arm-linux-gnueabihf/libcom_err.so.2.1
+50f97000-50f98000 r--p 00001000 b3:07 672834     /lib/arm-linux-gnueabihf/libcom_err.so.2.1
+50f98000-50f99000 rw-p 00002000 b3:07 672834     /lib/arm-linux-gnueabihf/libcom_err.so.2.1
+50f99000-50fc4000 r-xp 00000000 b3:07 156139     /usr/lib/arm-linux-gnueabihf/libk5crypto.so.3.1
+50fc4000-50fd4000 ---p 0002b000 b3:07 156139     /usr/lib/arm-linux-gnueabihf/libk5crypto.so.3.1
+50fd4000-50fd5000 r--p 0002b000 b3:07 156139     /usr/lib/arm-linux-gnueabihf/libk5crypto.so.3.1
+50fd5000-50fd6000 rw-p 0002c000 b3:07 156139     /usr/lib/arm-linux-gnueabihf/libk5crypto.so.3.1
+50fd6000-50fd7000 rw-p 00000000 00:00 0 
+50fd7000-51074000 r-xp 00000000 b3:07 155097     /usr/lib/arm-linux-gnueabihf/libkrb5.so.3.3
+51074000-51083000 ---p 0009d000 b3:07 155097     /usr/lib/arm-linux-gnueabihf/libkrb5.so.3.3
+51083000-51089000 r--p 0009c000 b3:07 155097     /usr/lib/arm-linux-gnueabihf/libkrb5.so.3.3
+51089000-5108b000 rw-p 000a2000 b3:07 155097     /usr/lib/arm-linux-gnueabihf/libkrb5.so.3.3
+5108b000-5108f000 r-xp 00000000 b3:07 154934     /usr/lib/arm-linux-gnueabihf/libXdmcp.so.6.0.0
+5108f000-51096000 ---p 00004000 b3:07 154934     /usr/lib/arm-linux-gnueabihf/libXdmcp.so.6.0.0
+51096000-51097000 rw-p 00003000 b3:07 154934     /usr/lib/arm-linux-gnueabihf/libXdmcp.so.6.0.0
+51097000-51099000 r-xp 00000000 b3:07 156195     /usr/lib/arm-linux-gnueabihf/libXau.so.6.0.0
+51099000-510a0000 ---p 00002000 b3:07 156195     /usr/lib/arm-linux-gnueabihf/libXau.so.6.0.0
+510a0000-510a1000 r--p 00001000 b3:07 156195     /usr/lib/arm-linux-gnueabihf/libXau.so.6.0.0
+510a1000-510a2000 rw-p 00002000 b3:07 156195     /usr/lib/arm-linux-gnueabihf/libXau.so.6.0.0
+510a2000-510c1000 r-xp 00000000 b3:07 672841     /lib/arm-linux-gnueabihf/libexpat.so.1.6.0
+510c1000-510d1000 ---p 0001f000 b3:07 672841     /lib/arm-linux-gnueabihf/libexpat.so.1.6.0
+510d1000-510d3000 r--p 0001f000 b3:07 672841     /lib/arm-linux-gnueabihf/libexpat.so.1.6.0
+510d3000-510d4000 rw-p 00021000 b3:07 672841     /lib/arm-linux-gnueabihf/libexpat.so.1.6.0
+510d4000-510e2000 r-xp 00000000 b3:07 154972     /usr/lib/arm-linux-gnueabihf/libavahi-client.so.3.2.9
+510e2000-510f1000 ---p 0000e000 b3:07 154972     /usr/lib/arm-linux-gnueabihf/libavahi-client.so.3.2.9
+510f1000-510f2000 r--p 0000d000 b3:07 154972     /usr/lib/arm-linux-gnueabihf/libavahi-client.so.3.2.9
+510f2000-510f3000 rw-p 0000e000 b3:07 154972     /usr/lib/arm-linux-gnueabihf/libavahi-client.so.3.2.9
+510f3000-510fd000 r-xp 00000000 b3:07 154978     /usr/lib/arm-linux-gnueabihf/libavahi-common.so.3.5.3
+510fd000-5110c000 ---p 0000a000 b3:07 154978     /usr/lib/arm-linux-gnueabihf/libavahi-common.so.3.5.3
+5110c000-5110d000 r--p 00009000 b3:07 154978     /usr/lib/arm-linux-gnueabihf/libavahi-common.so.3.5.3
+5110d000-5110e000 rw-p 0000a000 b3:07 154978     /usr/lib/arm-linux-gnueabihf/libavahi-common.so.3.5.3
+5110e000-51204000 r-xp 00000000 b3:07 156530     /usr/lib/arm-linux-gnueabihf/libgnutls-deb0.so.28.41.0
+51204000-51214000 ---p 000f6000 b3:07 156530     /usr/lib/arm-linux-gnueabihf/libgnutls-deb0.so.28.41.0
+51214000-51219000 r--p 000f6000 b3:07 156530     /usr/lib/arm-linux-gnueabihf/libgnutls-deb0.so.28.41.0
+51219000-5121b000 rw-p 000fb000 b3:07 156530     /usr/lib/arm-linux-gnueabihf/libgnutls-deb0.so.28.41.0
+5121b000-51253000 r-xp 00000000 b3:07 156081     /usr/lib/arm-linux-gnueabihf/libgssapi_krb5.so.2.2
+51253000-51263000 ---p 00038000 b3:07 156081     /usr/lib/arm-linux-gnueabihf/libgssapi_krb5.so.2.2
+51263000-51264000 r--p 00038000 b3:07 156081     /usr/lib/arm-linux-gnueabihf/libgssapi_krb5.so.2.2
+51264000-51265000 rw-p 00039000 b3:07 156081     /usr/lib/arm-linux-gnueabihf/libgssapi_krb5.so.2.2
+51265000-5127b000 r-xp 00000000 b3:07 156782     /usr/lib/arm-linux-gnueabihf/libxcb.so.1.1.0
+5127b000-51282000 ---p 00016000 b3:07 156782     /usr/lib/arm-linux-gnueabihf/libxcb.so.1.1.0
+51282000-51283000 r--p 00015000 b3:07 156782     /usr/lib/arm-linux-gnueabihf/libxcb.so.1.1.0
+51283000-51284000 rw-p 00016000 b3:07 156782     /usr/lib/arm-linux-gnueabihf/libxcb.so.1.1.0
+51284000-51308000 r-xp 00000000 b3:07 155833     /usr/lib/arm-linux-gnueabihf/libfreetype.so.6.12.0
+51308000-51317000 ---p 00084000 b3:07 155833     /usr/lib/arm-linux-gnueabihf/libfreetype.so.6.12.0
+51317000-5131b000 r--p 00083000 b3:07 155833     /usr/lib/arm-linux-gnueabihf/libfreetype.so.6.12.0
+5131b000-5131c000 rw-p 00087000 b3:07 155833     /usr/lib/arm-linux-gnueabihf/libfreetype.so.6.12.0
+5131c000-5134c000 r-xp 00000000 b3:07 155188     /usr/lib/arm-linux-gnueabihf/libfontconfig.so.1.8.0
+5134c000-5134d000 r--p 00030000 b3:07 155188     /usr/lib/arm-linux-gnueabihf/libfontconfig.so.1.8.0
+5134d000-5134e000 rw-p 00031000 b3:07 155188     /usr/lib/arm-linux-gnueabihf/libfontconfig.so.1.8.0
+5134e000-513a9000 r-xp 00000000 b3:07 156804     /usr/lib/arm-linux-gnueabihf/libcups.so.2
+513a9000-513b9000 ---p 0005b000 b3:07 156804     /usr/lib/arm-linux-gnueabihf/libcups.so.2
+513b9000-513bd000 r--p 0005b000 b3:07 156804     /usr/lib/arm-linux-gnueabihf/libcups.so.2
+513bd000-513be000 rw-p 0005f000 b3:07 156804     /usr/lib/arm-linux-gnueabihf/libcups.so.2
+513be000-513ca000 r-xp 00000000 b3:07 156669     /usr/lib/arm-linux-gnueabihf/libXi.so.6.1.0
+513ca000-513d1000 ---p 0000c000 b3:07 156669     /usr/lib/arm-linux-gnueabihf/libXi.so.6.1.0
+513d1000-513d2000 r--p 0000b000 b3:07 156669     /usr/lib/arm-linux-gnueabihf/libXi.so.6.1.0
+513d2000-513d3000 rw-p 0000c000 b3:07 156669     /usr/lib/arm-linux-gnueabihf/libXi.so.6.1.0
+513d3000-513d7000 r-xp 00000000 b3:07 156862     /usr/lib/arm-linux-gnueabihf/libXtst.so.6.1.0
+513d7000-513de000 ---p 00004000 b3:07 156862     /usr/lib/arm-linux-gnueabihf/libXtst.so.6.1.0
+513de000-513df000 r--p 00003000 b3:07 156862     /usr/lib/arm-linux-gnueabihf/libXtst.so.6.1.0
+513df000-513e0000 rw-p 00004000 b3:07 156862     /usr/lib/arm-linux-gnueabihf/libXtst.so.6.1.0
+513e0000-513e8000 r-xp 00000000 b3:07 156206     /usr/lib/arm-linux-gnueabihf/libXrender.so.1.3.0
+513e8000-513ef000 ---p 00008000 b3:07 156206     /usr/lib/arm-linux-gnueabihf/libXrender.so.1.3.0
+513ef000-513f0000 r--p 00007000 b3:07 156206     /usr/lib/arm-linux-gnueabihf/libXrender.so.1.3.0
+513f0000-513f1000 rw-p 00008000 b3:07 156206     /usr/lib/arm-linux-gnueabihf/libXrender.so.1.3.0
+513f1000-514fc000 r-xp 00000000 b3:07 156244     /usr/lib/arm-linux-gnueabihf/libX11.so.6.3.0
+514fc000-51503000 ---p 0010b000 b3:07 156244     /usr/lib/arm-linux-gnueabihf/libX11.so.6.3.0
+51503000-51504000 r--p 0010a000 b3:07 156244     /usr/lib/arm-linux-gnueabihf/libX11.so.6.3.0
+51504000-51507000 rw-p 0010b000 b3:07 156244     /usr/lib/arm-linux-gnueabihf/libX11.so.6.3.0
+51507000-51515000 r-xp 00000000 b3:07 156597     /usr/lib/arm-linux-gnueabihf/libXext.so.6.4.0
+51515000-51524000 ---p 0000e000 b3:07 156597     /usr/lib/arm-linux-gnueabihf/libXext.so.6.4.0
+51524000-51525000 r--p 0000d000 b3:07 156597     /usr/lib/arm-linux-gnueabihf/libXext.so.6.4.0
+51525000-51526000 rw-p 0000e000 b3:07 156597     /usr/lib/arm-linux-gnueabihf/libXext.so.6.4.0
+51539000-51578000 r-xp 00000000 b3:07 287288     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/xawt/libmawt.so
+51578000-51587000 ---p 0003f000 b3:07 287288     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/xawt/libmawt.so
+51587000-51588000 r--p 0003e000 b3:07 287288     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/xawt/libmawt.so
+51588000-5158a000 rw-p 0003f000 b3:07 287288     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/xawt/libmawt.so
+5158a000-5158b000 rw-p 00000000 00:00 0 
+5158b000-51607000 r-xp 00000000 b3:07 286915     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libawt.so
+51607000-51616000 ---p 0007c000 b3:07 286915     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libawt.so
+51616000-51617000 r--p 0007b000 b3:07 286915     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libawt.so
+51617000-5161e000 rw-p 0007c000 b3:07 286915     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libawt.so
+5161e000-51642000 rw-p 00000000 00:00 0 
+51642000-5164d000 r--s 0020a000 b3:07 286944     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/charsets.jar
+5164d000-51650000 ---p 00000000 00:00 0 
+51650000-517ed000 rwxp 00000000 00:00 0          [stack:2739]
+517ed000-51840000 r-xp 00000000 b3:07 156183     /usr/lib/arm-linux-gnueabihf/nss/libfreebl3.so
+51840000-5184f000 ---p 00053000 b3:07 156183     /usr/lib/arm-linux-gnueabihf/nss/libfreebl3.so
+5184f000-51850000 r--p 00052000 b3:07 156183     /usr/lib/arm-linux-gnueabihf/nss/libfreebl3.so
+51850000-51851000 rw-p 00053000 b3:07 156183     /usr/lib/arm-linux-gnueabihf/nss/libfreebl3.so
+51851000-51855000 rw-p 00000000 00:00 0 
+51855000-518fc000 r-xp 00000000 b3:07 156896     /usr/lib/arm-linux-gnueabihf/libsqlite3.so.0.8.6
+518fc000-5190b000 ---p 000a7000 b3:07 156896     /usr/lib/arm-linux-gnueabihf/libsqlite3.so.0.8.6
+5190b000-5190d000 r--p 000a6000 b3:07 156896     /usr/lib/arm-linux-gnueabihf/libsqlite3.so.0.8.6
+5190d000-5190e000 rw-p 000a8000 b3:07 156896     /usr/lib/arm-linux-gnueabihf/libsqlite3.so.0.8.6
+5190e000-5190f000 rw-p 00000000 00:00 0 
+5190f000-51942000 r-xp 00000000 b3:07 156179     /usr/lib/arm-linux-gnueabihf/nss/libsoftokn3.so
+51942000-51952000 ---p 00033000 b3:07 156179     /usr/lib/arm-linux-gnueabihf/nss/libsoftokn3.so
+51952000-51953000 r--p 00033000 b3:07 156179     /usr/lib/arm-linux-gnueabihf/nss/libsoftokn3.so
+51953000-51954000 rw-p 00034000 b3:07 156179     /usr/lib/arm-linux-gnueabihf/nss/libsoftokn3.so
+51954000-51981000 r-xp 00000000 b3:07 155130     /usr/lib/arm-linux-gnueabihf/libnspr4.so
+51981000-51990000 ---p 0002d000 b3:07 155130     /usr/lib/arm-linux-gnueabihf/libnspr4.so
+51990000-51991000 r--p 0002c000 b3:07 155130     /usr/lib/arm-linux-gnueabihf/libnspr4.so
+51991000-51992000 rw-p 0002d000 b3:07 155130     /usr/lib/arm-linux-gnueabihf/libnspr4.so
+51992000-51994000 rw-p 00000000 00:00 0 
+51994000-51996000 r-xp 00000000 b3:07 154975     /usr/lib/arm-linux-gnueabihf/libplds4.so
+51996000-519a5000 ---p 00002000 b3:07 154975     /usr/lib/arm-linux-gnueabihf/libplds4.so
+519a5000-519a6000 r--p 00001000 b3:07 154975     /usr/lib/arm-linux-gnueabihf/libplds4.so
+519a6000-519a7000 rw-p 00002000 b3:07 154975     /usr/lib/arm-linux-gnueabihf/libplds4.so
+519a7000-519c3000 r-xp 00000000 b3:07 156714     /usr/lib/arm-linux-gnueabihf/libnssutil3.so
+519c3000-519d3000 ---p 0001c000 b3:07 156714     /usr/lib/arm-linux-gnueabihf/libnssutil3.so
+519d3000-519d6000 r--p 0001c000 b3:07 156714     /usr/lib/arm-linux-gnueabihf/libnssutil3.so
+519d6000-519d7000 rw-p 0001f000 b3:07 156714     /usr/lib/arm-linux-gnueabihf/libnssutil3.so
+519d7000-51ad7000 r-xp 00000000 b3:07 156130     /usr/lib/arm-linux-gnueabihf/libnss3.so
+51ad7000-51ae6000 ---p 00100000 b3:07 156130     /usr/lib/arm-linux-gnueabihf/libnss3.so
+51ae6000-51ae9000 r--p 000ff000 b3:07 156130     /usr/lib/arm-linux-gnueabihf/libnss3.so
+51ae9000-51aeb000 rw-p 00102000 b3:07 156130     /usr/lib/arm-linux-gnueabihf/libnss3.so
+51aeb000-51aec000 rw-p 00000000 00:00 0 
+51aec000-51afb000 r-xp 00000000 b3:07 286924     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libj2pkcs11.so
+51afb000-51b0a000 ---p 0000f000 b3:07 286924     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libj2pkcs11.so
+51b0a000-51b0b000 r--p 0000e000 b3:07 286924     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libj2pkcs11.so
+51b0b000-51b0c000 rw-p 0000f000 b3:07 286924     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libj2pkcs11.so
+51b0c000-51b1a000 r-xp 00000000 b3:07 286939     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnio.so
+51b1a000-51b29000 ---p 0000e000 b3:07 286939     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnio.so
+51b29000-51b2a000 r--p 0000d000 b3:07 286939     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnio.so
+51b2a000-51b2b000 rw-p 0000e000 b3:07 286939     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnio.so
+51b2b000-51cec000 rw-p 00000000 00:00 0 
+51cec000-51d4e000 r-xp 00000000 b3:07 656190     /lib/arm-linux-gnueabihf/libpcre.so.3.13.1
+51d4e000-51d5d000 ---p 00062000 b3:07 656190     /lib/arm-linux-gnueabihf/libpcre.so.3.13.1
+51d5d000-51d5e000 r--p 00061000 b3:07 656190     /lib/arm-linux-gnueabihf/libpcre.so.3.13.1
+51d5e000-51d5f000 rw-p 00062000 b3:07 656190     /lib/arm-linux-gnueabihf/libpcre.so.3.13.1
+51d5f000-51d71000 r-xp 00000000 b3:07 677397     /lib/arm-linux-gnueabihf/libresolv-2.19.so
+51d71000-51d80000 ---p 00012000 b3:07 677397     /lib/arm-linux-gnueabihf/libresolv-2.19.so
+51d80000-51d81000 r--p 00011000 b3:07 677397     /lib/arm-linux-gnueabihf/libresolv-2.19.so
+51d81000-51d82000 rw-p 00012000 b3:07 677397     /lib/arm-linux-gnueabihf/libresolv-2.19.so
+51d82000-51d84000 rw-p 00000000 00:00 0 
+51d84000-51d9f000 r-xp 00000000 b3:07 673033     /lib/arm-linux-gnueabihf/libselinux.so.1
+51d9f000-51dae000 ---p 0001b000 b3:07 673033     /lib/arm-linux-gnueabihf/libselinux.so.1
+51dae000-51daf000 r--p 0001a000 b3:07 673033     /lib/arm-linux-gnueabihf/libselinux.so.1
+51daf000-51db0000 rw-p 0001b000 b3:07 673033     /lib/arm-linux-gnueabihf/libselinux.so.1
+51db0000-51db1000 rw-p 00000000 00:00 0 
+51db1000-51ea3000 r-xp 00000000 b3:07 672854     /lib/arm-linux-gnueabihf/libglib-2.0.so.0.4200.1
+51ea3000-51eb2000 ---p 000f2000 b3:07 672854     /lib/arm-linux-gnueabihf/libglib-2.0.so.0.4200.1
+51eb2000-51eb3000 r--p 000f1000 b3:07 672854     /lib/arm-linux-gnueabihf/libglib-2.0.so.0.4200.1
+51eb3000-51eb4000 rw-p 000f2000 b3:07 672854     /lib/arm-linux-gnueabihf/libglib-2.0.so.0.4200.1
+51eb4000-51efd000 r-xp 00000000 b3:07 156871     /usr/lib/arm-linux-gnueabihf/libgobject-2.0.so.0.4200.1
+51efd000-51f0c000 ---p 00049000 b3:07 156871     /usr/lib/arm-linux-gnueabihf/libgobject-2.0.so.0.4200.1
+51f0c000-51f0d000 r--p 00048000 b3:07 156871     /usr/lib/arm-linux-gnueabihf/libgobject-2.0.so.0.4200.1
+51f0d000-51f0e000 rw-p 00049000 b3:07 156871     /usr/lib/arm-linux-gnueabihf/libgobject-2.0.so.0.4200.1
+51f0e000-52046000 r-xp 00000000 b3:07 155289     /usr/lib/arm-linux-gnueabihf/libgio-2.0.so.0.4200.1
+52046000-52056000 ---p 00138000 b3:07 155289     /usr/lib/arm-linux-gnueabihf/libgio-2.0.so.0.4200.1
+52056000-52058000 r--p 00138000 b3:07 155289     /usr/lib/arm-linux-gnueabihf/libgio-2.0.so.0.4200.1
+52058000-5205a000 rw-p 0013a000 b3:07 155289     /usr/lib/arm-linux-gnueabihf/libgio-2.0.so.0.4200.1
+5205a000-5205b000 rw-p 00000000 00:00 0 
+5205b000-5205e000 ---p 00000000 00:00 0 
+5205e000-521fb000 rwxp 00000000 00:00 0          [stack:2738]
+521fb000-5231c000 r-xp 00000000 b3:07 294622     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_calib3d.so.3.1.0
+5231c000-5232b000 ---p 00121000 b3:07 294622     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_calib3d.so.3.1.0
+5232b000-5232d000 rw-p 00120000 b3:07 294622     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_calib3d.so.3.1.0
+5232d000-523ba000 r-xp 00000000 b3:07 294603     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_features2d.so.3.1.0
+523ba000-523c9000 ---p 0008d000 b3:07 294603     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_features2d.so.3.1.0
+523c9000-523cc000 rw-p 0008c000 b3:07 294603     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_features2d.so.3.1.0
+523cc000-5241b000 r-xp 00000000 b3:07 294585     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_objdetect.so.3.1.0
+5241b000-5242b000 ---p 0004f000 b3:07 294585     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_objdetect.so.3.1.0
+5242b000-5242c000 rw-p 0004f000 b3:07 294585     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_objdetect.so.3.1.0
+5242c000-52637000 r-xp 00000000 b3:07 294496     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgcodecs.so.3.1.0
+52637000-52647000 ---p 0020b000 b3:07 294496     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgcodecs.so.3.1.0
+52647000-5264f000 rw-p 0020b000 b3:07 294496     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgcodecs.so.3.1.0
+5264f000-52658000 rw-p 00000000 00:00 0 
+52658000-526aa000 r-xp 00000000 b3:07 294553     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_video.so.3.1.0
+526aa000-526ba000 ---p 00052000 b3:07 294553     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_video.so.3.1.0
+526ba000-526bb000 rw-p 00052000 b3:07 294553     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_video.so.3.1.0
+526bb000-52764000 r-xp 00000000 b3:07 294545     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_photo.so.3.1.0
+52764000-52773000 ---p 000a9000 b3:07 294545     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_photo.so.3.1.0
+52773000-52775000 rw-p 000a8000 b3:07 294545     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_photo.so.3.1.0
+52775000-527fc000 r-xp 00000000 b3:07 294537     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_ml.so.3.1.0
+527fc000-5280b000 ---p 00087000 b3:07 294537     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_ml.so.3.1.0
+5280b000-5280d000 rw-p 00086000 b3:07 294537     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_ml.so.3.1.0
+5280d000-52a3a000 r-xp 00000000 b3:07 294491     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgproc.so.3.1.0
+52a3a000-52a49000 ---p 0022d000 b3:07 294491     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgproc.so.3.1.0
+52a49000-52a51000 rw-p 0022c000 b3:07 294491     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_imgproc.so.3.1.0
+52a51000-52adf000 rw-p 00000000 00:00 0 
+52adf000-52cec000 r-xp 00000000 b3:07 294479     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_core.so.3.1.0
+52cec000-52cfb000 ---p 0020d000 b3:07 294479     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_core.so.3.1.0
+52cfb000-52cff000 rw-p 0020c000 b3:07 294479     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_core.so.3.1.0
+52cff000-52d00000 rw-p 00000000 00:00 0 
+52d00000-52df9000 rw-p 00000000 00:00 0 
+52df9000-52e00000 ---p 00000000 00:00 0 
+52e06000-52e09000 r-xp 00000000 b3:07 154933     /usr/lib/arm-linux-gnueabihf/libplc4.so
+52e09000-52e18000 ---p 00003000 b3:07 154933     /usr/lib/arm-linux-gnueabihf/libplc4.so
+52e18000-52e19000 r--p 00002000 b3:07 154933     /usr/lib/arm-linux-gnueabihf/libplc4.so
+52e19000-52e1a000 rw-p 00003000 b3:07 154933     /usr/lib/arm-linux-gnueabihf/libplc4.so
+52e1a000-52e30000 r-xp 00000000 b3:07 286938     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnet.so
+52e30000-52e3f000 ---p 00016000 b3:07 286938     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnet.so
+52e3f000-52e40000 r--p 00015000 b3:07 286938     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnet.so
+52e40000-52e41000 rw-p 00016000 b3:07 286938     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libnet.so
+52e41000-52e48000 r-xp 00000000 b3:07 286936     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libmanagement.so
+52e48000-52e58000 ---p 00007000 b3:07 286936     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libmanagement.so
+52e58000-52e59000 r--p 00007000 b3:07 286936     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libmanagement.so
+52e59000-52e5a000 rw-p 00008000 b3:07 286936     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libmanagement.so
+52e5a000-52eef000 r-xp 00000000 b3:07 294834     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_java310.so
+52eef000-52eff000 ---p 00095000 b3:07 294834     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_java310.so
+52eff000-52f00000 rw-p 00095000 b3:07 294834     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_java310.so
+52f00000-52fff000 rw-p 00000000 00:00 0 
+52fff000-53000000 ---p 00000000 00:00 0 
+53001000-53004000 r-xp 00000000 b3:07 155007     /usr/lib/arm-linux-gnueabihf/libgmodule-2.0.so.0.4200.1
+53004000-53013000 ---p 00003000 b3:07 155007     /usr/lib/arm-linux-gnueabihf/libgmodule-2.0.so.0.4200.1
+53013000-53014000 r--p 00002000 b3:07 155007     /usr/lib/arm-linux-gnueabihf/libgmodule-2.0.so.0.4200.1
+53014000-53015000 rw-p 00003000 b3:07 155007     /usr/lib/arm-linux-gnueabihf/libgmodule-2.0.so.0.4200.1
+53015000-531e6000 r--s 01d7e000 b3:07 717206     /home/pi/Libraries/aws-java-sdk-1.11.4/lib/aws-java-sdk-1.11.4-sources.jar
+531e6000-53400000 r--s 02042000 b3:07 717208     /home/pi/Libraries/aws-java-sdk-1.11.4/lib/aws-java-sdk-1.11.4.jar
+53400000-53421000 rw-p 00000000 00:00 0 
+53421000-53500000 ---p 00000000 00:00 0 
+53500000-53506000 r-xp 00000000 b3:07 155271     /usr/lib/arm-linux-gnueabihf/libffi.so.6.0.2
+53506000-5350e000 ---p 00006000 b3:07 155271     /usr/lib/arm-linux-gnueabihf/libffi.so.6.0.2
+5350e000-5350f000 r--p 00006000 b3:07 155271     /usr/lib/arm-linux-gnueabihf/libffi.so.6.0.2
+5350f000-53510000 rw-p 00007000 b3:07 155271     /usr/lib/arm-linux-gnueabihf/libffi.so.6.0.2
+53510000-53600000 r--s 033f3000 b3:07 717207     /home/pi/Libraries/aws-java-sdk-1.11.4/lib/aws-java-sdk-1.11.4-javadoc.jar
+53600000-53621000 rw-p 00000000 00:00 0 
+53621000-53700000 ---p 00000000 00:00 0 
+53709000-53728000 r-xp 00000000 b3:07 672938     /lib/arm-linux-gnueabihf/libpng12.so.0.50.0
+53728000-53737000 ---p 0001f000 b3:07 672938     /lib/arm-linux-gnueabihf/libpng12.so.0.50.0
+53737000-53738000 r--p 0001e000 b3:07 672938     /lib/arm-linux-gnueabihf/libpng12.so.0.50.0
+53738000-53739000 rw-p 0001f000 b3:07 672938     /lib/arm-linux-gnueabihf/libpng12.so.0.50.0
+53743000-5374c000 r--s 000ad000 b3:07 286966     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/resources.jar
+5374c000-53750000 r-xp 00000000 b3:07 294505     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_highgui.so.3.1.0
+53750000-5375f000 ---p 00004000 b3:07 294505     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_highgui.so.3.1.0
+5375f000-53760000 rw-p 00003000 b3:07 294505     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_highgui.so.3.1.0
+53760000-53763000 ---p 00000000 00:00 0 
+53763000-53900000 rwxp 00000000 00:00 0          [stack:2736]
+53900000-53921000 rw-p 00000000 00:00 0 
+53921000-53a00000 ---p 00000000 00:00 0 
+53a07000-53a0a000 r--s 00017000 b3:07 286962     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/jce.jar
+53a0a000-53a0e000 r--s 0004e000 b3:07 286963     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/jsse.jar
+53a0e000-53a28000 r-xp 00000000 b3:07 294501     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_videoio.so.3.1.0
+53a28000-53a38000 ---p 0001a000 b3:07 294501     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_videoio.so.3.1.0
+53a38000-53a39000 rw-p 0001a000 b3:07 294501     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_videoio.so.3.1.0
+53a39000-53a3c000 rw-p 00000000 00:00 0 
+53a3c000-53a7e000 r-xp 00000000 b3:07 294519     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_flann.so.3.1.0
+53a7e000-53a8d000 ---p 00042000 b3:07 294519     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_flann.so.3.1.0
+53a8d000-53a8f000 rw-p 00041000 b3:07 294519     /home/pi/Libraries/opencv-3.1.0/build/lib/libopencv_flann.so.3.1.0
+53a8f000-53a94000 r--s 00048000 b3:07 294831     /home/pi/Libraries/opencv-3.1.0/build/bin/opencv-310.jar
+53a94000-53a9a000 r--s 0002d000 b3:07 716769     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/spring-test-3.0.7.RELEASE.jar
+53a9a000-53aab000 r--s 00093000 b3:07 716765     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/spring-context-3.0.7.RELEASE.jar
+53aab000-53ab6000 r--s 0007d000 b3:07 716773     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/spring-beans-3.0.7.RELEASE.jar
+53ab6000-53ac6000 r--s 00088000 b3:07 716771     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/joda-time-2.8.1.jar
+53ac6000-53ad7000 r--s 0010d000 b3:07 716761     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/jackson-databind-2.6.6.jar
+53ad7000-53ada000 ---p 00000000 00:00 0 
+53ada000-53c77000 rwxp 00000000 00:00 0          [stack:2735]
+53c77000-53e00000 r--p 00000000 b3:07 261038     /usr/lib/locale/locale-archive
+53e00000-53e21000 rw-p 00000000 00:00 0 
+53e21000-53f00000 ---p 00000000 00:00 0 
+53f00000-53f60000 rw-p 00000000 00:00 0 
+53f60000-53f63000 ---p 00000000 00:00 0 
+53f63000-54100000 rwxp 00000000 00:00 0          [stack:2734]
+54100000-54121000 rw-p 00000000 00:00 0 
+54121000-54200000 ---p 00000000 00:00 0 
+54201000-5420a000 r--s 00055000 b3:07 716768     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/spring-core-3.0.7.RELEASE.jar
+5420a000-5420e000 r--s 0002b000 b3:07 716770     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/javax.mail-api-1.4.6.jar
+5420e000-54212000 r--s 0003c000 b3:07 716775     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/jackson-core-2.6.6.jar
+54212000-54219000 r--s 00049000 b3:07 716762     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/httpcore-4.4.4.jar
+54219000-54260000 rw-p 00000000 00:00 0 
+54260000-54263000 ---p 00000000 00:00 0 
+54263000-54400000 rwxp 00000000 00:00 0          [stack:2733]
+54400000-544cd000 rw-p 00000000 00:00 0 
+544cd000-54500000 ---p 00000000 00:00 0 
+54500000-54503000 r--s 00009000 b3:07 716763     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/jackson-annotations-2.6.0.jar
+54503000-54510000 r--s 000a7000 b3:07 716774     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/httpclient-4.5.2.jar
+54510000-5451f000 r--s 000b7000 b3:07 716772     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/freemarker-2.3.9.jar
+5451f000-54521000 r--s 0000e000 b3:07 716767     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/commons-logging-1.1.3.jar
+54521000-54522000 ---p 00000000 00:00 0 
+54522000-545a1000 rwxp 00000000 00:00 0          [stack:2737]
+545a1000-545a2000 ---p 00000000 00:00 0 
+545a2000-54621000 rwxp 00000000 00:00 0          [stack:2732]
+54621000-5466a000 rw-p 00000000 00:00 0 
+5466a000-5481b000 r--s 01ceb000 b3:07 286893     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/rt.jar
+5481b000-54883000 rw-p 00000000 00:00 0 
+54883000-54884000 ---p 00000000 00:00 0 
+54884000-54907000 rw-p 00000000 00:00 0 
+54907000-5490e000 rw-p 00000000 00:00 0 
+5490e000-5494f000 rw-p 00000000 00:00 0 
+5494f000-5495c000 rw-p 00000000 00:00 0 
+5495c000-5495d000 ---p 00000000 00:00 0 
+5495d000-549df000 rw-p 00000000 00:00 0 
+549df000-549e8000 rw-p 00000000 00:00 0 
+549e8000-549ff000 rw-p 00000000 00:00 0 
+549ff000-55680000 rw-p 00000000 00:00 0 
+55680000-5da00000 rw-p 00000000 00:00 0 
+5da00000-5f2e0000 rw-p 00000000 00:00 0 
+5f2e0000-5f418000 ---p 00000000 00:00 0 
+5f418000-6fa00000 rw-p 00000000 00:00 0 
+6fa00000-70a40000 rw-p 00000000 00:00 0 
+70a40000-73a00000 rw-p 00000000 00:00 0 
+73a00000-73a01000 r--p 00000000 b3:07 137325     /usr/share/locale/en_GB/LC_MESSAGES/libc.mo
+73a01000-73a08000 r--s 0003a000 b3:07 716764     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/commons-codec-1.9.jar
+73a08000-73a1f000 r--s 00195000 b3:07 716759     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/aspectjweaver.jar
+73a1f000-73a50000 rw-p 00000000 00:00 0 
+73a50000-73a68000 rw-p 00000000 00:00 0 
+73a68000-73a69000 rw-p 00000000 00:00 0 
+73a69000-73ae8000 rw-p 00000000 00:00 0 
+73ae8000-73b10000 rwxp 00000000 00:00 0 
+73b10000-75ae8000 rw-p 00000000 00:00 0 
+75ae8000-75aef000 r-xp 00000000 b3:07 286943     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libzip.so
+75aef000-75afe000 ---p 00007000 b3:07 286943     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libzip.so
+75afe000-75aff000 r--p 00006000 b3:07 286943     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libzip.so
+75aff000-75b00000 rw-p 00007000 b3:07 286943     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libzip.so
+75b00000-75bfb000 rw-p 00000000 00:00 0 
+75bfb000-75c00000 ---p 00000000 00:00 0 
+75c00000-75c04000 r--s 00019000 b3:07 716760     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/aspectjrt-1.8.2.jar
+75c04000-75c06000 r--s 0000c000 b3:07 717205     /home/pi/Libraries/aws-java-sdk-1.11.4/lib/aws-swf-build-tools-1.0.jar
+75c06000-75c08000 r--s 0000a000 b3:07 421161     /usr/share/java/hamcrest-core-1.3.jar
+75c08000-75c0a000 r--s 0000a000 b3:07 421161     /usr/share/java/hamcrest-core-1.3.jar
+75c0a000-75c10000 r--s 00036000 b3:07 421199     /usr/share/java/junit4-4.11.jar
+75c10000-75c1b000 r-xp 00000000 b3:07 677392     /lib/arm-linux-gnueabihf/libnss_files-2.19.so
+75c1b000-75c2a000 ---p 0000b000 b3:07 677392     /lib/arm-linux-gnueabihf/libnss_files-2.19.so
+75c2a000-75c2b000 r--p 0000a000 b3:07 677392     /lib/arm-linux-gnueabihf/libnss_files-2.19.so
+75c2b000-75c2c000 rw-p 0000b000 b3:07 677392     /lib/arm-linux-gnueabihf/libnss_files-2.19.so
+75c2c000-75c35000 r-xp 00000000 b3:07 677394     /lib/arm-linux-gnueabihf/libnss_nis-2.19.so
+75c35000-75c44000 ---p 00009000 b3:07 677394     /lib/arm-linux-gnueabihf/libnss_nis-2.19.so
+75c44000-75c45000 r--p 00008000 b3:07 677394     /lib/arm-linux-gnueabihf/libnss_nis-2.19.so
+75c45000-75c46000 rw-p 00009000 b3:07 677394     /lib/arm-linux-gnueabihf/libnss_nis-2.19.so
+75c46000-75c57000 r-xp 00000000 b3:07 677389     /lib/arm-linux-gnueabihf/libnsl-2.19.so
+75c57000-75c66000 ---p 00011000 b3:07 677389     /lib/arm-linux-gnueabihf/libnsl-2.19.so
+75c66000-75c67000 r--p 00010000 b3:07 677389     /lib/arm-linux-gnueabihf/libnsl-2.19.so
+75c67000-75c68000 rw-p 00011000 b3:07 677389     /lib/arm-linux-gnueabihf/libnsl-2.19.so
+75c68000-75c6a000 rw-p 00000000 00:00 0 
+75c6a000-75c71000 r-xp 00000000 b3:07 677390     /lib/arm-linux-gnueabihf/libnss_compat-2.19.so
+75c71000-75c80000 ---p 00007000 b3:07 677390     /lib/arm-linux-gnueabihf/libnss_compat-2.19.so
+75c80000-75c81000 r--p 00006000 b3:07 677390     /lib/arm-linux-gnueabihf/libnss_compat-2.19.so
+75c81000-75c82000 rw-p 00007000 b3:07 677390     /lib/arm-linux-gnueabihf/libnss_compat-2.19.so
+75c82000-75ca5000 r-xp 00000000 b3:07 286926     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjava.so
+75ca5000-75cb4000 ---p 00023000 b3:07 286926     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjava.so
+75cb4000-75cb5000 r--p 00022000 b3:07 286926     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjava.so
+75cb5000-75cb6000 rw-p 00023000 b3:07 286926     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libjava.so
+75cb6000-75cc2000 r-xp 00000000 b3:07 286942     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libverify.so
+75cc2000-75cd2000 ---p 0000c000 b3:07 286942     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libverify.so
+75cd2000-75cd3000 r--p 0000c000 b3:07 286942     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libverify.so
+75cd3000-75cd4000 rw-p 0000d000 b3:07 286942     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/libverify.so
+75cd4000-75cda000 r-xp 00000000 b3:07 677398     /lib/arm-linux-gnueabihf/librt-2.19.so
+75cda000-75ce9000 ---p 00006000 b3:07 677398     /lib/arm-linux-gnueabihf/librt-2.19.so
+75ce9000-75cea000 r--p 00005000 b3:07 677398     /lib/arm-linux-gnueabihf/librt-2.19.so
+75cea000-75ceb000 rw-p 00006000 b3:07 677398     /lib/arm-linux-gnueabihf/librt-2.19.so
+75ceb000-75cef000 ---p 00000000 00:00 0 
+75cef000-7668b000 rwxp 00000000 00:00 0          [stack:2731]
+7668b000-766a8000 r-xp 00000000 b3:07 672934     /lib/arm-linux-gnueabihf/libgcc_s.so.1
+766a8000-766b7000 ---p 0001d000 b3:07 672934     /lib/arm-linux-gnueabihf/libgcc_s.so.1
+766b7000-766b8000 rw-p 0001c000 b3:07 672934     /lib/arm-linux-gnueabihf/libgcc_s.so.1
+766b8000-76721000 r-xp 00000000 b3:07 677386     /lib/arm-linux-gnueabihf/libm-2.19.so
+76721000-76731000 ---p 00069000 b3:07 677386     /lib/arm-linux-gnueabihf/libm-2.19.so
+76731000-76732000 r--p 00069000 b3:07 677386     /lib/arm-linux-gnueabihf/libm-2.19.so
+76732000-76733000 rw-p 0006a000 b3:07 677386     /lib/arm-linux-gnueabihf/libm-2.19.so
+76733000-767f4000 r-xp 00000000 b3:07 156594     /usr/lib/arm-linux-gnueabihf/libstdc++.so.6.0.20
+767f4000-76803000 ---p 000c1000 b3:07 156594     /usr/lib/arm-linux-gnueabihf/libstdc++.so.6.0.20
+76803000-76807000 r--p 000c0000 b3:07 156594     /usr/lib/arm-linux-gnueabihf/libstdc++.so.6.0.20
+76807000-76809000 rw-p 000c4000 b3:07 156594     /usr/lib/arm-linux-gnueabihf/libstdc++.so.6.0.20
+76809000-7680f000 rw-p 00000000 00:00 0 
+7680f000-76c9e000 r-xp 00000000 b3:07 286913     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/server/libjvm.so
+76c9e000-76cae000 ---p 0048f000 b3:07 286913     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/server/libjvm.so
+76cae000-76cbd000 r--p 0048f000 b3:07 286913     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/server/libjvm.so
+76cbd000-76cce000 rw-p 0049e000 b3:07 286913     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/server/libjvm.so
+76cce000-76d2a000 rw-p 00000000 00:00 0 
+76d2a000-76d40000 r-xp 00000000 b3:07 673028     /lib/arm-linux-gnueabihf/libz.so.1.2.8
+76d40000-76d4f000 ---p 00016000 b3:07 673028     /lib/arm-linux-gnueabihf/libz.so.1.2.8
+76d4f000-76d50000 r--p 00015000 b3:07 673028     /lib/arm-linux-gnueabihf/libz.so.1.2.8
+76d50000-76d51000 rw-p 00016000 b3:07 673028     /lib/arm-linux-gnueabihf/libz.so.1.2.8
+76d51000-76e7c000 r-xp 00000000 b3:07 677380     /lib/arm-linux-gnueabihf/libc-2.19.so
+76e7c000-76e8c000 ---p 0012b000 b3:07 677380     /lib/arm-linux-gnueabihf/libc-2.19.so
+76e8c000-76e8e000 r--p 0012b000 b3:07 677380     /lib/arm-linux-gnueabihf/libc-2.19.so
+76e8e000-76e8f000 rw-p 0012d000 b3:07 677380     /lib/arm-linux-gnueabihf/libc-2.19.so
+76e8f000-76e92000 rw-p 00000000 00:00 0 
+76e92000-76e94000 r-xp 00000000 b3:07 677383     /lib/arm-linux-gnueabihf/libdl-2.19.so
+76e94000-76ea3000 ---p 00002000 b3:07 677383     /lib/arm-linux-gnueabihf/libdl-2.19.so
+76ea3000-76ea4000 r--p 00001000 b3:07 677383     /lib/arm-linux-gnueabihf/libdl-2.19.so
+76ea4000-76ea5000 rw-p 00002000 b3:07 677383     /lib/arm-linux-gnueabihf/libdl-2.19.so
+76ea5000-76eb1000 r-xp 00000000 b3:07 286909     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/jli/libjli.so
+76eb1000-76ec1000 ---p 0000c000 b3:07 286909     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/jli/libjli.so
+76ec1000-76ec2000 r--p 0000c000 b3:07 286909     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/jli/libjli.so
+76ec2000-76ec3000 rw-p 0000d000 b3:07 286909     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/arm/jli/libjli.so
+76ec3000-76ed7000 r-xp 00000000 b3:07 677402     /lib/arm-linux-gnueabihf/libpthread-2.19.so
+76ed7000-76ee7000 ---p 00014000 b3:07 677402     /lib/arm-linux-gnueabihf/libpthread-2.19.so
+76ee7000-76ee8000 r--p 00014000 b3:07 677402     /lib/arm-linux-gnueabihf/libpthread-2.19.so
+76ee8000-76ee9000 rw-p 00015000 b3:07 677402     /lib/arm-linux-gnueabihf/libpthread-2.19.so
+76ee9000-76eeb000 rw-p 00000000 00:00 0 
+76eeb000-76eec000 r--s 0000b000 b3:07 716766     /home/pi/Libraries/aws-java-sdk-1.11.4/third-party/lib/jackson-dataformat-cbor-2.6.6.jar
+76eec000-76ef0000 r--s 00033000 b3:07 286902     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/sunjce_provider.jar
+76ef0000-76ef1000 r--s 00012000 b3:07 286903     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/zipfs.jar
+76ef1000-76ef3000 r--s 00006000 b3:07 403783     /usr/share/java/java-atk-wrapper.jar
+76ef3000-76ef4000 r--s 00002000 b3:07 286900     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/dnsns.jar
+76ef4000-76ef7000 r--s 0000f000 b3:07 286904     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/icedtea-sound.jar
+76ef7000-76efa000 r--s 00087000 b3:07 286901     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/localedata.jar
+76efa000-76efe000 r--s 0003c000 b3:07 286899     /usr/lib/jvm/java-7-openjdk-armhf/jre/lib/ext/sunpkcs11.jar
+76efe000-76f03000 r-xp 00000000 b3:07 156251     /usr/lib/arm-linux-gnueabihf/libarmmem.so
+76f03000-76f12000 ---p 00005000 b3:07 156251     /usr/lib/arm-linux-gnueabihf/libarmmem.so
+76f12000-76f13000 rw-p 00004000 b3:07 156251     /usr/lib/arm-linux-gnueabihf/libarmmem.so
+76f13000-76f33000 r-xp 00000000 b3:07 677377     /lib/arm-linux-gnueabihf/ld-2.19.so
+76f33000-76f3b000 rw-s 00000000 b3:07 793449     /tmp/hsperfdata_pi/2726
+76f3b000-76f3c000 rw-p 00000000 00:00 0 
+76f3c000-76f3d000 ---p 00000000 00:00 0 
+76f3d000-76f42000 rw-p 00000000 00:00 0 
+76f42000-76f43000 r--p 0001f000 b3:07 677377     /lib/arm-linux-gnueabihf/ld-2.19.so
+76f43000-76f44000 rw-p 00020000 b3:07 677377     /lib/arm-linux-gnueabihf/ld-2.19.so
+7e900000-7e921000 rwxp 00000000 00:00 0          [stack]
+7e921000-7e922000 rw-p 00000000 00:00 0 
+7e9a3000-7e9a4000 r-xp 00000000 00:00 0          [sigpage]
+7e9a4000-7e9a5000 r--p 00000000 00:00 0          [vvar]
+7e9a5000-7e9a6000 r-xp 00000000 00:00 0          [vdso]
+ffff0000-ffff1000 r-xp 00000000 00:00 0          [vectors]
+
+VM Arguments:
+jvm_args: -Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib -Dfile.encoding=UTF-8 
+java_command: videoSender.ICCRunner
+Launcher Type: SUN_STANDARD
+
+Environment Variables:
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
+SHELL=/bin/bash
+DISPLAY=:0.0
+
+Signal Handlers:
+SIGSEGV: [libjvm.so+0x439688], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGBUS: [libjvm.so+0x439688], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGFPE: [libjvm.so+0x362fdc], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGPIPE: SIG_IGN, sa_mask[0]=0x00000000, sa_flags=0x00000000
+SIGXFSZ: [libjvm.so+0x362fdc], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGILL: [libjvm.so+0x362fdc], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGUSR1: SIG_DFL, sa_mask[0]=0x00000000, sa_flags=0x00000000
+SIGUSR2: [libjvm.so+0x362e54], sa_mask[0]=0x00000004, sa_flags=0x10000004
+SIGHUP: [libjvm.so+0x36305c], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGINT: [libjvm.so+0x36305c], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGTERM: [libjvm.so+0x36305c], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGQUIT: [libjvm.so+0x36305c], sa_mask[0]=0x7ffbfeff, sa_flags=0x10000004
+SIGTRAP: SIG_DFL, sa_mask[0]=0x00000000, sa_flags=0x00000000
+
+
+---------------  S Y S T E M  ---------------
+
+OS:8.0
+
+uname:Linux 4.1.19-v7+ #858 SMP Tue Mar 15 15:56:00 GMT 2016 armv7l
+libc:glibc 2.19 NPTL 2.19 
+rlimit: STACK 8192k, CORE 0k, NPROC 6831, NOFILE 65536, AS infinity
+load average:2.19 2.09 1.85
+
+/proc/meminfo:
+MemTotal:         883052 kB
+MemFree:          270004 kB
+MemAvailable:     542364 kB
+Buffers:           39928 kB
+Cached:           255632 kB
+SwapCached:            0 kB
+Active:           456356 kB
+Inactive:         117464 kB
+Active(anon):     278640 kB
+Inactive(anon):     8700 kB
+Active(file):     177716 kB
+Inactive(file):   108764 kB
+Unevictable:           0 kB
+Mlocked:               0 kB
+SwapTotal:        102396 kB
+SwapFree:         102396 kB
+Dirty:               264 kB
+Writeback:             0 kB
+AnonPages:        278256 kB
+Mapped:            82768 kB
+Shmem:              9084 kB
+Slab:              21656 kB
+SReclaimable:      12716 kB
+SUnreclaim:         8940 kB
+KernelStack:        1816 kB
+PageTables:         3244 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:      543920 kB
+Committed_AS:     965036 kB
+VmallocTotal:    1171456 kB
+VmallocUsed:        5348 kB
+VmallocChunk:     937988 kB
+CmaTotal:           8192 kB
+CmaFree:            3732 kB
+
+
+CPU:total 4 
+
+/proc/cpuinfo:
+processor	: 0
+model name	: ARMv7 Processor rev 4 (v7l)
+BogoMIPS	: 76.80
+Features	: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm crc32 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 1
+model name	: ARMv7 Processor rev 4 (v7l)
+BogoMIPS	: 76.80
+Features	: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm crc32 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 2
+model name	: ARMv7 Processor rev 4 (v7l)
+BogoMIPS	: 76.80
+Features	: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm crc32 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+processor	: 3
+model name	: ARMv7 Processor rev 4 (v7l)
+BogoMIPS	: 76.80
+Features	: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm crc32 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x0
+CPU part	: 0xd03
+CPU revision	: 4
+
+Hardware	: BCM2709
+Revision	: a22082
+Serial		: 00000000b127db69
+
+
+Memory: 4k page, physical 883052k(270004k free), swap 102396k(102396k free)
+
+vm_info: OpenJDK Zero VM (24.95-b01) for linux-arm-vfp JRE (1.7.0_95-b00), built on Jan 28 2016 19:18:42 by "autoforwardporter" with gcc 4.9.2
+
+time: Fri Oct 14 14:48:51 2016
+elapsed time: 711 seconds
+
