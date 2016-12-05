@@ -26,6 +26,9 @@ public class VideoSegmentHeader {
 	//-------------------------------------------------------------------------
 	//CONSTRUCTORS
 	//-------------------------------------------------------------------------
+	public VideoSegmentHeader(){
+		//DVC
+	}
 	public VideoSegmentHeader(int[] frameOrder){
 		_frameOrder = frameOrder;
 	}
@@ -59,7 +62,8 @@ public class VideoSegmentHeader {
 		return _timeStamp;
 	}
 	public int size(){
-		return Long.BYTES + (_frameOrder.length * Integer.BYTES);
+//		return Long.BYTES + (_frameOrder.length * Integer.BYTES);
+		return 8 + (_frameOrder.length * 4);
 	}
 
 	//-------------------------------------------------------------------------
@@ -100,7 +104,8 @@ public class VideoSegmentHeader {
 	//PRIVATE METHODS
 	//-------------------------------------------------------------------------
 	private void init(byte[] data){
-		int frameSize = (data.length - Long.BYTES)/Integer.BYTES;
+//		int frameSize = (data.length - Long.BYTES)/Integer.BYTES;
+		int frameSize = (data.length - 8)/4;
 		ByteBuffer buffer = ByteBuffer.allocate(data.length);
 		buffer.put(data);
 		buffer.flip();

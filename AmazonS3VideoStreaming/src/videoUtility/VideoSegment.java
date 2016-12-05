@@ -30,6 +30,9 @@ public class VideoSegment {
 	private LinkedList<BufferedImage> _imglist;
 	private VideoSegmentHeader _header;
 	
+	public VideoSegment(){
+		//DVC
+	}
 	/**
 	 * Constructor used when header information and video data are separately
 	 * known (used by the ICCRunner).
@@ -82,6 +85,23 @@ public class VideoSegment {
 		return _data.length + _header.size();
 	}
 
+<<<<<<< HEAD
+=======
+	//-------------------------------------------------------------------------
+	//SET METHODS
+	//-------------------------------------------------------------------------
+	public void setIndex(int index){
+		_index = index;
+	}
+	public void setData(byte[] data){
+		_data = data;
+	}
+	public void setHeader(VideoSegmentHeader header){//should be called last
+		_header = header;
+		_header.setTimeStamp(System.currentTimeMillis());
+	}
+	
+>>>>>>> origin/v.3
 	//-------------------------------------------------------------------------
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------

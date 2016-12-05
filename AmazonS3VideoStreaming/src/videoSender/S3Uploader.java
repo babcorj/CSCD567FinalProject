@@ -170,10 +170,15 @@ public class S3Uploader extends S3UserStream {
 	 * @param file		The file to be deleted from S3.
 	 */
 	public void delete(String file){
-		try{
-			_s3.deleteObject(new DeleteObjectRequest(_bucketName, file));
-		} catch(Exception e){
-			e.printStackTrace();
+		while(true){
+			try{
+				_s3.deleteObject(new DeleteObjectRequest(_bucketName, file));
+				break;
+			} catch(Exception e){
+//				e.printStackTrace();
+				System.err.println("Deletion failed: " + file);
+				continue;
+			}
 		}
 		System.out.println("S3: Successfully deleted '"+file+"' from '" + _bucketName + "'");
 	}
@@ -190,6 +195,10 @@ public class S3Uploader extends S3UserStream {
 		_isDone = true;
 	}
 
+	public boolean isDeleted(String file){
+		return !_s3.doesObjectExist(_bucketName, file);
+	}
+	
 	//-------------------------------------------------------------------------
 	//Private methods
 	//-------------------------------------------------------------------------	
