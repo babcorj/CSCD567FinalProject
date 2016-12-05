@@ -6,7 +6,8 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 
 public class PerformanceLogger {
-
+	static final long TIME_OFFSET = -25259;
+	
 	private long _startTime;
 	private FileWriter _fw;
 	private String _filename;
@@ -29,7 +30,7 @@ public class PerformanceLogger {
 	}
 	
 	public synchronized void log(double number){
-		DecimalFormat formatter = new DecimalFormat("#.000");
+		DecimalFormat formatter = new DecimalFormat("#.###");
 		
 		try{
 			_fw.write(formatter.format(number));
@@ -57,7 +58,7 @@ public class PerformanceLogger {
 	}
 	
 	public synchronized void logTime(){
-		double cur = System.currentTimeMillis();
+		double cur = System.currentTimeMillis() + TIME_OFFSET;
 		double startTime = _startTime;
 		double timelapse = (cur - startTime)/1000;
 		DecimalFormat formatter = new DecimalFormat("#.000");

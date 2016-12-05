@@ -44,7 +44,8 @@ public class VideoPlayer extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Member Variables
 	//-------------------------------------------------------------------------
-	private static long _millis;
+	static final long TIME_OFFSET = -25259;
+	
 	private static DisplayFrame _display;
 	private static List<Double> _records;
 	private static PerformanceLogger _logger;
@@ -73,7 +74,7 @@ public class VideoPlayer extends VideoSource {
 	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
 		
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+//		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		VideoPlayer player = new VideoPlayer();
 
@@ -99,12 +100,16 @@ public class VideoPlayer extends VideoSource {
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
 //			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
-
+//			double timeStarted = (double)((System.currentTimeMillis() - _logger.getStartTime())/1000);
 			try {
-				System.out.println("List is coming..");
+				//Always get most current frame
+				while(stream.size() > 1){
+					stream.getFrame();
+				}
 				videoSegment = stream.getFrame();
-				logDelay(videoSegment);
+				logDelay(videoSegment.getTimeStamp());
 				frameList = videoSegment.getImageList();
+				System.out.println("Playing '" + videoSegment.toString() + "'");
 
 				for(BufferedImage img : frameList){
 					_display.setCurrentFrame(img);
@@ -112,7 +117,7 @@ public class VideoPlayer extends VideoSource {
 				}
 			} catch (Exception e) {
 				if(_isDone) continue;
-				System.err.println("VP: Problem reading video file: " + videoSegment.getName());
+				System.err.println("VP: Problem reading video file: " + videoSegment.toString());
 			}
 		}
 		closeEverything();
@@ -156,17 +161,17 @@ public class VideoPlayer extends VideoSource {
 				s3log		= FileData.S3DOWNLOADER_LOG.print(),
 				script		= FileData.SCRIPTFILE.print();
 
-		  _millis = Long.parseLong(_signalQueue.dequeue());
+		long millis = Long.parseLong(_signalQueue.dequeue());
 		_specs[0] = _signalQueue.dequeue();//compression
 		_specs[1] = _signalQueue.dequeue();//FPS
 		_specs[2] = _signalQueue.dequeue();//segmentLength
-		
+
 		if(!FileData.ISLOGGING.isTrue()) return;
 
 		writeGNUPlotScript(logFolder+plog, logFolder+s3log, script);
 		try{
 			_logger = new PerformanceLogger(plog, logFolder);
-			_logger.setStartTime(_millis);
+			_logger.setStartTime(millis);
 		} catch (IOException ioe){
 			System.err.println("Failed to open performance log");
 		} catch (Exception e){
@@ -229,20 +234,25 @@ public class VideoPlayer extends VideoSource {
 	 * Logs the time the video was sent versus the time the video was received.
 	 * @param videoSegment	The video segment to be played.
 	 */
-	private void logDelay(VideoSegment videoSegment){
+	private void logDelay(long timeStamp){
 		if(!FileData.ISLOGGING.isTrue()) return;
 
-		double timeOut = (System.currentTimeMillis() - _logger.getStartTime())/1000
-				- videoSegment.getTimeStamp();
+		double timeElapsed = (double)((System.currentTimeMillis() + TIME_OFFSET
+				- _logger.getStartTime())/1000);
+//		System.out.println("Elapsed: " + timeElapsed);
+		double videoStart = ((double)(timeStamp - _logger.getStartTime())/1000);
+//		System.out.println("VideoStart: " + videoStart);
+		double delay = timeElapsed - videoStart;
+//		System.out.println("Player(Delay): " + (delay));
 		try {
 			_logger.logTime();
 			_logger.log(" ");
-			_logger.log((timeOut) + "\n");
+			_logger.log((delay));
+			_logger.log("\n");
 		} catch (IOException e) {
-			System.err.println("VP: Failed to log video segment '"
-					+ videoSegment.getName() + "'");
+			System.err.println("VP: Failed to log video segment...");
 		}
-		_records.add(timeOut);
+		_records.add(delay);
 	}
 }
 
