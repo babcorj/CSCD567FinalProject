@@ -35,7 +35,7 @@ public class ICCFrameReader {
 	//-------------------------------------------------------------------------
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------
-
+	
 	public static BufferedImage readImage(byte[] data) throws IOException{
 		if(data != null){
 			return ImageIO.read(new ByteArrayInputStream(data));

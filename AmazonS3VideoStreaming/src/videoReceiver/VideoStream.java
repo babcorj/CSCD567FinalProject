@@ -27,10 +27,9 @@ public class VideoStream {
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------
 	public void add(VideoSegment video) {
-		video.getImageList();//turns byte[] data into BufferedImage list
 		_stream.enqueue(video);
 	}
-	public VideoSegment getFrame() {
+	public VideoSegment getSegment() {
 		return _stream.dequeue();
 	}
 	public int size(){

@@ -3,7 +3,6 @@ package videoSender;
 import videoUtility.VideoSource;
 import videoUtility.DisplayFrame;
 import videoUtility.FileData;
-import videoUtility.VideoSegmentHeader;
 import videoUtility.ICCFrameWriter;
 import videoUtility.PerformanceLogger;
 import videoUtility.SharedQueue;
@@ -12,12 +11,12 @@ import videoUtility.VideoSegment;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 
+import org.jcodec.common.logging.Logger;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
@@ -64,6 +63,7 @@ public class ICCRunner extends VideoSource {
 	 */
 	private final static int MAX_VIDEO_INDEX = 10;
 	private final static int MAX_SEGMENTS = 5;
+	private final static int FPS = 6;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
@@ -72,7 +72,7 @@ public class ICCRunner extends VideoSource {
 			.setCompressionRatio(0.4)
 			.setDevice(0)
 			.setFourCC("MJPG")
-			.setFPS(6)
+			.setFPS(FPS)
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
 			.setSegmentLength(5);//in seconds
@@ -154,13 +154,9 @@ public class ICCRunner extends VideoSource {
 		int segmentLength = (int)(_setup.getFPS() * _setup.getSegmentLength());
 		boolean preloaded = false;
 		double timeStarted;
-		ByteArrayOutputStream output = new ByteArrayOutputStream();
-		ICCFrameWriter segmentWriter = new ICCFrameWriter(_mat, output);
+		ICCFrameWriter segmentWriter = new ICCFrameWriter(_mat, FPS);
 		VideoCapture grabber = null;
 		VideoSegment segment = new VideoSegment();
-		VideoSegmentHeader header = new VideoSegmentHeader();
-		
-		segmentWriter.setFrames(segmentLength);
 
 		try{
 			grabber = _setup.getVideoCapture();
@@ -174,6 +170,7 @@ public class ICCRunner extends VideoSource {
 		timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 
 		//isDone becomes false when "end()" function is called
+		//happens during shutdown hook inner class
 		while (!_isDone) {
 			try {
 				//capture and record video
@@ -181,10 +178,10 @@ public class ICCRunner extends VideoSource {
 					Utility.pause(15);
 					continue;
 				}
-				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
 				Imgproc.putText(_mat, getTime(),
 						_timeStampLocation,
 						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
+				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
 
 				_display.setCurrentFrame(this.getCurrentFrame());
 				segmentWriter.write();
@@ -193,13 +190,14 @@ public class ICCRunner extends VideoSource {
 				//loops until end of current video segment
 				if(frameCount >= segmentLength){
 					//set parameters instead of 'new' to avoid memory usage
-					header.setFrameOrder(segmentWriter.getFrames());
+					segmentWriter.complete();
 					segment.setIndex(currentSegment);
-					segment.setData(output.toByteArray());
-					segment.setHeader(header);
+					segment.setData(segmentWriter.getData().array());
 					
+					Logger.debug("Data: " + segmentWriter.getData().array().length);
+
 					sendSegmentToS3(segment);
-					
+
 					if(FileData.ISLOGGING.isTrue()){
 						logSegment(timeStarted);
 					}
@@ -211,6 +209,7 @@ public class ICCRunner extends VideoSource {
 					else if(currentSegment == MAX_SEGMENTS){
 						preloaded = true;
 					}
+					Logger.debug("Video written: " + segment.toString());
 
 					//start new recording
 					currentSegment = incrementVideoSegment(currentSegment);
@@ -218,7 +217,7 @@ public class ICCRunner extends VideoSource {
 					frameCount = 0;
 					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 				}
-//				Utility.pause((long) (1000/_setup.getFPS()));
+				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
 				if(e.getMessage().equals("closed")){
@@ -318,7 +317,6 @@ public class ICCRunner extends VideoSource {
 			sb.append(Long.toString(time) + "\n");
 			sb.append(MAX_VIDEO_INDEX + " ");
 			sb.append(MAX_SEGMENTS + "\n");
-			sb.append(headerSize + "\n");
 			sb.append(_setup.getCompressionRatio() + " ");
 			sb.append(_setup.getFPS() + " ");
 			sb.append(_setup.getSegmentLength() + "\n");
@@ -409,7 +407,9 @@ public class ICCRunner extends VideoSource {
 	}
 	
 	/**
-	 * Grabs the image from the most current frame recorded.
+	 * OPTIMIZE: Send _mat to display, let it worry about transformation
+	 * 
+	 * Transforms mat into BufferedImage.
 	 * 
 	 * @return the image used by DisplayFrame
 	 * @throws NullPointerException

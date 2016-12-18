@@ -50,7 +50,6 @@ public class S3Downloader extends S3UserStream {
 	private final long DOWNLOAD_WAIT_LIMIT = 15000;//in seconds (3x segment length is good)
 	
 	private int _currentIndex;
-	private int _headerSize;
 	private int _maxIndex;
 	private int _maxSegmentsSaved;
 	private long _startTime;
@@ -124,10 +123,10 @@ public class S3Downloader extends S3UserStream {
 					System.out.println("Downloading file: " + _key);
 	
 					videoData = getFileData(_key);
-					videoSegment = new VideoSegment(_currentIndex+1, videoData, _headerSize);
+					videoSegment = new VideoSegment(_currentIndex+1, videoData);
 					_stream.add(videoSegment);
 //					System.out.println(videoSegment.toString() + "(TIME): " + videoSegment.getTimeStamp());
-					logDownload(videoSegment.getTimeStamp());
+//					logDownload(grabber.getNativeFrameWithMetadata().getTimestamp());
 	
 				} catch(SocketException se){
 	//				System.err.println(se.getMessage());
@@ -247,7 +246,8 @@ public class S3Downloader extends S3UserStream {
 				}
 			}
 		}
-		return indeces[indeces.length-1];
+		return indeces[0];
+//		return indeces[indeces.length-1];
 	}
 
 	//Set to always look for future video
@@ -440,8 +440,6 @@ public class S3Downloader extends S3UserStream {
 		String[] segmentInfo = sc.nextLine().split(" ");//read
 		_maxIndex = Integer.parseInt(segmentInfo[0]);
 		_maxSegmentsSaved = Integer.parseInt(segmentInfo[1]);
-
-		_headerSize = Integer.parseInt(sc.nextLine());//read
 		
 		String[] specs = sc.nextLine().split(" ");//read
 		

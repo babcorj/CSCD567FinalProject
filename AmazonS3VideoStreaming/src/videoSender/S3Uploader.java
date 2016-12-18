@@ -113,15 +113,19 @@ public class S3Uploader extends S3UserStream {
 			VideoSegment segment;
 			
 			try { //start uploading video stream
+				int segSz;
 				double timeReceived = (double)((System.currentTimeMillis() - _startTime/1000));
+				
 				segment = _stream.dequeue();
+				segSz = segment.size();
 				_key = segment.toString();
-				info.setContentLength(segment.size());
+				info.setContentLength(segSz);
+
 				ByteArrayInputStream bin = new ByteArrayInputStream(segment.data());
 				
 				System.out.println("S3: Uploading file '" + _key + "'...");
 				
-				uploadSegment(_transferMGMT, bin, _key, segment.size());
+				uploadSegment(_transferMGMT, bin, _key, segSz);
 				logUpload(timeReceived);
 
 				_key = null;
@@ -203,7 +207,7 @@ public class S3Uploader extends S3UserStream {
 	//Private methods
 	//-------------------------------------------------------------------------	
 	private void closeEverything(){
-		deleteAllSegments();
+//		deleteAllSegments();
 		if(!FileData.ISLOGGING.isTrue()) return;
 		try{
 			_logger.close();

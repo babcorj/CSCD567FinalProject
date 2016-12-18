@@ -13,12 +13,15 @@ import java.awt.image.BufferedImage;
 //Java package
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
-//OpenCV package
-import org.opencv.core.*;
+import org.jcodec.api.FrameGrab8Bit;
+import org.jcodec.common.io.ByteBufferSeekableByteChannel;
+import org.jcodec.common.io.SeekableByteChannel;
+import org.jcodec.common.model.Picture8Bit;
+import org.jcodec.scale.AWTUtil;
 
 import GNUPlot.GNUScriptParameters;
 import GNUPlot.GNUScriptWriter;
@@ -92,7 +95,12 @@ public class VideoPlayer extends VideoSource {
 		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
 
 		double fps = Double.parseDouble(_specs[1]);
-		LinkedList<BufferedImage> frameList;
+		double timeStamp = -1.0;
+		BufferedImage img;
+		ByteBuffer buffer;
+		FrameGrab8Bit grabber;
+		Picture8Bit pic;
+		SeekableByteChannel channel;
 		VideoSegment videoSegment = null;
 
 		System.out.println("Starting video player...");
@@ -104,19 +112,30 @@ public class VideoPlayer extends VideoSource {
 			try {
 				//Always get most current frame
 				while(stream.size() > 1){
-					stream.getFrame();
+					stream.getSegment();
 				}
-				videoSegment = stream.getFrame();
-				logDelay(videoSegment.getTimeStamp());
-				frameList = videoSegment.getImageList();
+				videoSegment = stream.getSegment();
+				buffer = ByteBuffer.wrap(videoSegment.data());
+				channel = new ByteBufferSeekableByteChannel(buffer);
+				grabber = FrameGrab8Bit.createFrameGrab8Bit(channel);
+				timeStamp = grabber.getNativeFrameWithMetadata().getTimestamp();
+				logDelay(timeStamp);
 				System.out.println("Playing '" + videoSegment.toString() + "'");
 
-				for(BufferedImage img : frameList){
+				while((pic = grabber.getNativeFrame()) != null){
+					img = AWTUtil.toBufferedImage8Bit(pic);
 					_display.setCurrentFrame(img);
 					Utility.pause((long)(1000/fps));
 				}
+				
+				buffer = null;
+				channel = null;
+				grabber = null;
+				videoSegment = null;
+				
 			} catch (Exception e) {
 				if(_isDone) continue;
+				e.printStackTrace();
 				System.err.println("VP: Problem reading video file: " + videoSegment.toString());
 			}
 		}
@@ -234,25 +253,25 @@ public class VideoPlayer extends VideoSource {
 	 * Logs the time the video was sent versus the time the video was received.
 	 * @param videoSegment	The video segment to be played.
 	 */
-	private void logDelay(long timeStamp){
+	private void logDelay(double timeStamp){
 		if(!FileData.ISLOGGING.isTrue()) return;
 
-		double timeElapsed = (double)((System.currentTimeMillis() + TIME_OFFSET
-				- _logger.getStartTime())/1000);
+//		double timeElapsed = (double)((System.currentTimeMillis() + TIME_OFFSET
+//				- _logger.getStartTime())/1000);
 //		System.out.println("Elapsed: " + timeElapsed);
-		double videoStart = ((double)(timeStamp - _logger.getStartTime())/1000);
+//		double videoStart = ((double)(timeStamp - _logger.getStartTime())/1000);
 //		System.out.println("VideoStart: " + videoStart);
-		double delay = timeElapsed - videoStart;
+//		double delay = timeElapsed - videoStart;
 //		System.out.println("Player(Delay): " + (delay));
 		try {
 			_logger.logTime();
 			_logger.log(" ");
-			_logger.log((delay));
+			_logger.log((timeStamp));
 			_logger.log("\n");
 		} catch (IOException e) {
 			System.err.println("VP: Failed to log video segment...");
 		}
-		_records.add(delay);
+		_records.add(timeStamp);
 	}
 }
 

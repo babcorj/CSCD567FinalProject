@@ -1,90 +1,46 @@
 package videoUtility;
 
-/**
- * @author Ryan Babcock
- * 
- * This class is to be used with OpenCV 3.1.0
- * 
- * Bugs: File used for ImageWriter can be used with PrintWriter
- */
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.util.Iterator;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
 
+import org.jcodec.api.PictureWithMetadata8Bit;
+import org.jcodec.api.awt.AWTSequenceEncoder8Bit;
+import org.jcodec.common.io.ByteBufferSeekableByteChannel;
+import org.jcodec.common.io.SeekableByteChannel;
+import org.jcodec.common.logging.Logger;
+import org.jcodec.common.model.ColorSpace;
+import org.jcodec.common.model.Rational;
+import org.jcodec.scale.AWTUtil;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
 
-
-/**
- * 
- * @author Ryan Babcock
- * 
- * The ICCFrameWriter class can be used for multiple purposes. Mainly, it is used
- * to convert a mat, or sequence of mats, into a compressed format and then
- * write to some output. Any device should be able to read the file produced
- * from ICCFrameWriter when using one mat, but in the case where multiple mats are
- * used, the ICCFrameReader class is necessary to read in the subsequent images.
- * <p>
- * By default, the compression type used is JPG. However, this can be modified
- * by using the setCompressionType method.
- * 
- */
 public class ICCFrameWriter {
+	
+	private final int VIDEO_SIZE = 300_000;//allocated for buffer
 
-	
-	//-------------------------------------------------------------------------
-	//PARAMETERS
-	//-------------------------------------------------------------------------
-	
-	private int _currentFrame = 0;
-	private int[] _frames;
-	private ImageWriter _IW;
+	private int _fps;
+	private AWTSequenceEncoder8Bit _enc;
 	private Mat _mat;
-	private ByteArrayOutputStream _output;
-	private PrintWriter _PW;
+	private ByteBuffer _buffer;
+	private SeekableByteChannel _channel;
 	private String _extension = ".jpg";
 
-	
+//-----------------------------------------------------------------------------
+//PUBLIC METHODS
+//-----------------------------------------------------------------------------
+
 	//-------------------------------------------------------------------------
 	//CONSTRUCTORS
 	//-------------------------------------------------------------------------
-	
-	/**
-	 * Empty ICCFrameWriter instance. A mat instance and output must be specified in
-	 * order to use most of the methods within this class.
-	 * 
-	 * @see	setMat, setOutput
-	 */
-	public ICCFrameWriter() {
-		//empty DVC
-	}
-	
-	/**
-	 * Sets mat to be used for most methods. The printMat method can be used
-	 * without having to set any other parameters. However, the write method
-	 * reguires an output to be set before it can be used.
-	 * 
-	 * @param mat	The mat used to print values or write to an image.
-	 */
-	public ICCFrameWriter(Mat mat){
-		_mat = mat;
-	}
-
 	/**
 	 * The standard EVC commonly used for writing a mat or sequence of
 	 * mats to an output.
@@ -95,31 +51,27 @@ public class ICCFrameWriter {
 	 * @throws IOException
 	 * @see	ImageWriter
 	 */
-	public ICCFrameWriter(Mat mat, ByteArrayOutputStream output) {
+	public ICCFrameWriter(Mat mat, int fps) {
+		_fps = fps;
 		_mat = mat;
-		_output = output;
-		try{			
-			setImageOutput(_output);
-		} catch(IOException ioe){
-			System.err.println(ioe.getMessage());
+		try {
+			initEncoder();
+		} catch (NoSuchElementException | IOException e) {
+			e.printStackTrace();
 		}
 	}
-
-	//-------------------------------------------------------------------------
-	//SET METHODS
-	//-------------------------------------------------------------------------
 	
-	/**
-	 * @return	Returns the index positions of each frame.
-	 */
-	public int[] getFrames(){
-		return _frames;
+	//-------------------------------------------------------------------------
+	//GET METHODS
+	//-------------------------------------------------------------------------
+	public ByteBuffer getData(){
+		return _buffer;
 	}
+
 	
 	//-------------------------------------------------------------------------
 	//SET METHODS
 	//-------------------------------------------------------------------------
-	
 	/**
 	 * Sets the compression to be used by ImageWriter. The format expects
 	 * lowercase characters preceded by a dot, ie. ".jpeg", ".png", ".gif".
@@ -132,63 +84,7 @@ public class ICCFrameWriter {
 	 */
 	public void setCompressionType(String extension) throws NoSuchElementException,
 			IOException{
-		_extension = extension;
-		if(_IW != null){
-			try{
-				setImageOutput(_output);
-			} catch(NoSuchElementException e){
-				throw new NoSuchElementException(e.getMessage());
-			}
-		}
-	}
-	
-	/**
-	 * Sets the output used for writing the compressed image.
-	 * 
-	 * @param output	The output used for writing the compressed image. Used
-	 * 					by ImageWriter class.
-	 * @throws IOException
-	 * @see	ImageWriter
-	 */
-	public void setImageOutput(ByteArrayOutputStream output) throws IOException,
-			NoSuchElementException {
-		try{
-			if(_IW != null){
-				_IW.dispose();
-			}
-			_output = output;
-			_IW = getImageWriter();
-		} catch(IOException ioe){
-			throw new IOException("Unable to use ouput");
-		} catch(NoSuchElementException e){
-			throw new NoSuchElementException(e.getMessage());
-		}
-	}
-
-	/**
-	 * Sets the file where the mat pixel values prints tvideoo.
-	 * 
-	 * @param file	Where the mat pixel values prints to.
-	 * @throws FileNotFoundException
-	 */
-	public void setMatOutput(File file) throws FileNotFoundException{
-		if(_PW != null){
-			_PW.close();
-		}
-		_PW = new PrintWriter(file);
-	}
-	
-	/**
-	 * Sets the output stream used to print mat pixel values.
-	 * 
-	 * @param output	The output stream used by printMat
-	 * @see printMat
-	 */
-	public void setMatOutput(OutputStream output){
-		if(_PW != null){
-			_PW.close();
-		}
-		_PW = new PrintWriter(output);
+		throw new UnsupportedOperationException("Stuck with H.264");
 	}
 	
 	/**
@@ -199,7 +95,7 @@ public class ICCFrameWriter {
 	public void setMat(Mat mat){
 		_mat = mat;
 	}
-
+	
 	/**
 	 * Sets the mat where the data is derived from. Upon method call, the
 	 * previous mat that was used by this instance is released.
@@ -214,29 +110,17 @@ public class ICCFrameWriter {
 		_mat = mat;
 	}
 	
-	/**
-	 *
-	 */
-	public void setFrames(int totalFrames){
-		_frames = new int[totalFrames];
-		_currentFrame = 0;
-	}
-	
 	//-------------------------------------------------------------------------
-	//PUBLIC METHODS
+	//ORIGINAL
 	//-------------------------------------------------------------------------
-	
 	/**
 	 * Closes mat and all output streams associated with ICCFrameWriter instance.
+	 * @throws IOException 
 	 */
-	public void close(){
-		if(_PW != null){
-			_PW.close();
-			_PW = null;
-		}
-		if(_IW != null){
-			_IW.dispose();
-			_IW = null;
+	public void close() throws IOException{
+		if(_enc != null){
+			_enc.finish();
+			_enc = null;
 		}
 		if(_mat != null){
 			_mat.release();
@@ -244,17 +128,18 @@ public class ICCFrameWriter {
 		}
 	}
 
-	/**
-	 * 
-	 */
-	public void exportTo(String filename) throws IOException{
+	public void complete(){
 		try{
-			FileWriter fw = new FileWriter(filename);
-			fw.write(_output.toString());
-			fw.close();
-		} catch(IOException ioe){
-			throw new IOException("Unable to write to video segment to '"
-					+ filename + "'.");
+			int size = (int) _channel.position();
+			_enc.finish();
+			_buffer.position(0);
+//			Logger.debug("Channel: " + size);
+			trimBuffer(size);
+			Logger.debug("SegmentSize: " + (_buffer.array().length));
+//			DprintBuffer();
+//			_channel.close();
+		}catch(IOException e){
+			e.printStackTrace();
 		}
 	}
 
@@ -263,78 +148,55 @@ public class ICCFrameWriter {
 	 * @param videoIndex
 	 * @throws IOException
 	 */
-	public void exportToFile(int videoIndex) throws IOException{
-		this.exportTo(FileData.VIDEO_FOLDER.print()
-				+ VideoSegment.toString(videoIndex));
-	}
-	
-	/**
-	 * Checks to see if all resources associated with MatWrtier have been closed.
-	 *
-	 * @return	True if all streams and mat is closed or released.
-	 */
-	public boolean isClosed(){
-		return (_PW == null)&&(_IW == null)&&(_mat == null);
-	}
+//	public void exportToFile(int videoIndex) throws IOException{
+//		this.exportToFile(FileData.VIDEO_FOLDER.print()
+//				+ VideoSegment.toString(videoIndex));
+//	}
 
 	/**
 	 * @throws IOException 
 	 * 
 	 */
 	public void reset() throws IOException{
-		setFrames(_frames.length);
-//		_IW.dispose();
-		_output.reset();
-//		_IW = getImageWriter();
+		initEncoder();
 	}
-	
-	/**
-	 * Checks the size of the image(s) output.
-	 * 
-	 * @return	The size of the output, or -1 if output is not a File
-	 * or ByteArrayOutputStream.
-	 */
-	public long size(){
-		return _output.size();
-	}
+
 	/**
 	 * Writes the compressed image to the output.
 	 * 
 	 * @throws IOException
 	 * @see setOutput
 	 */
-	public void write() throws IOException{
+	public void write() throws IOException {
 		assert(_mat != null);
-		assert(_IW != null);
-		assert(_frames != null);
+		assert(_enc != null);
 		
 		//write image to output
-		BufferedImage img = convertToBufferedImage();
-		_IW.write(img);
-		
-//		System.out.println("CURRENT FRAME: " + _currentFrame + "\nFRAMELENGTH: " + _frames.length
-//				+ "\nOUTPUT SIZE: " + _output.size());
-//		System.out.println(Utility.print(_output.toByteArray()));
-		//load _frames with current index value
-		if(_currentFrame >= _frames.length){
-			System.out.println("Auto reset..");
-			this.reset();
+		try{
+			PictureWithMetadata8Bit pic;
+			BufferedImage img = matToBufferedImage();
+			pic = new PictureWithMetadata8Bit(
+					AWTUtil.fromBufferedImage8Bit(img, ColorSpace.GREY),
+					timeStamp, duration);
+			_enc.encodeImage(img);
+		}catch(Exception e){
+			e.printStackTrace();
 		}
-		_frames[_currentFrame++] = _output.size();
+//		Logger.debug("Output: " + _channel.position());
+		
 	}
 
 	
-	//-------------------------------------------------------------------------
-	//PRIVATE METHODS
-	//-------------------------------------------------------------------------
-
+//-----------------------------------------------------------------------------
+//PRIVATE METHODS
+//-----------------------------------------------------------------------------
 	/**
 	 * Converts Mat to BufferedImage.
 	 * 
 	 * @return The compressed image
 	 * @throws IOException
 	 */
-	private BufferedImage convertToBufferedImage() throws IOException {
+	private BufferedImage matToBufferedImage() throws IOException {
 		MatOfByte matBuffer = new MatOfByte();
 		Imgcodecs.imencode(_extension, _mat, matBuffer);
 		InputStream inStream = new ByteArrayInputStream(matBuffer.toArray());
@@ -344,28 +206,38 @@ public class ICCFrameWriter {
 	}
 	
 	/**
-	 * Creates an ImageWriter used for saving the image created from mat
+	 * Creates SequenceEncoder used for saving the frames
 	 * 
-	 * @param 	output		The output used for ImageWriter
-	 * @return				The ImageWriter used for saving the image
+	 * @return	
 	 * @throws 	IOException
 	 * @see		ImageWriter
 	 */
-	private ImageWriter getImageWriter() throws IOException,
+	private void initEncoder() throws IOException,
 			NoSuchElementException {
-		ImageOutputStream ios = null;
-		ImageWriter imageWriter = null;
-		Iterator<ImageWriter> imageWriters = null;
-		String ext = _extension.toUpperCase().substring(1);
-		try{
-			imageWriters = ImageIO.getImageWritersByFormatName(ext);
-			imageWriter = (ImageWriter) imageWriters.next();
-		} catch(NoSuchElementException e){
-			throw new NoSuchElementException("Extension invalid!");
-		}
-		ios = ImageIO.createImageOutputStream(_output);
-		imageWriter.setOutput(ios);
+		_buffer = null;
+		_buffer = ByteBuffer.allocate(VIDEO_SIZE);
+//		for(int i=0; i < 1000; i++){
+//			_buffer.array()[i] = 0;
+//		}
+		_channel = new ByteBufferSeekableByteChannel(_buffer);
+		_enc = new AWTSequenceEncoder8Bit(_channel, new Rational(_fps, 1));
+	}
 
-		return imageWriter;
+	private void trimBuffer(int newSize){
+		byte[] bArray = Arrays.copyOf(_buffer.array(), newSize);
+		_buffer = null;
+		_buffer = ByteBuffer.wrap(bArray);
+	}
+	
+	//-------------------------------------------------------------------------
+	//PRIVATE METHODS
+	//-------------------------------------------------------------------------
+	private void DprintBuffer(){
+		byte[] bArr = _buffer.array();
+		int size = bArr.length;
+//		for(int i =0; i< size; i++){
+		for(int i =0; i< 1000; i++){
+			System.out.print(bArr[i]);
+		}
 	}
 }
