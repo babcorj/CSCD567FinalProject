@@ -49,7 +49,7 @@ public class S3Downloader extends S3UserStream {
 
 	private final long DOWNLOAD_WAIT_LIMIT = 15000;//in seconds (3x segment length is good)
 	
-	private int _currentIndex;
+	private int _currentIndex = -1;
 	private int _maxIndex;
 	private int _maxSegmentsSaved;
 	private long _startTime;
@@ -104,6 +104,7 @@ public class S3Downloader extends S3UserStream {
 			//---------------------------------------------------------------------		
 			try{
 				parseSetupFile();
+				System.out.println("Made it");
 				initLogger();
 
 			} catch(IOException e){
@@ -240,9 +241,6 @@ public class S3Downloader extends S3UserStream {
 						index = i;
 						return index;
 					}
-					if(index >= 0){
-						return index;
-					}
 				}
 			}
 		}
@@ -270,16 +268,14 @@ public class S3Downloader extends S3UserStream {
 
 		indeces = getIndeces(summaries, prefix, suffix);
 		tempIndex = _currentIndex;
-		_currentIndex = getCurrentIndex(indeces);
+		_currentIndex = getCurrentIndex(indeces)+1;////////////////////////////////////////////////////////////////////////////
 	
-		if(tempIndex == (_currentIndex)){//SET HERE FOR FUTURE VIDEO
-			return null;				//REMOVE +1 TO REVERT CHANGES
+		if(tempIndex == (_currentIndex)){
+			return null;
 		}
 		
 		int nextIndex = (_currentIndex+1) % _maxIndex;
-		if(_currentIndex+1 == _maxIndex){
-			
-		}
+//		System.out.println("CUr: " + nextIndex);
 		
 		return (prefix + nextIndex + suffix);
 	}
@@ -342,9 +338,8 @@ public class S3Downloader extends S3UserStream {
 				String suffix){
 			int prefLength = prefix.length();
 			int suffLength = suffix.length();
-			int[] indeces = new int[_maxSegmentsSaved];
-			//sometimes a file is busy being deleted on S3, so summaries is can be too big
 			int size = Math.min(_maxSegmentsSaved, summaries.size());
+			int[] indeces = new int[size];
 			
 			for(int i = 0; i < size; i++){
 				S3ObjectSummary s = summaries.get(i);
@@ -365,7 +360,7 @@ public class S3Downloader extends S3UserStream {
 	 */
 	private byte[] getSetupFile() throws IOException {
 		S3Object object = _s3.getObject(new GetObjectRequest(_bucketName, FileData.SETUP_FILE.print()));
-
+//System.out.println("made it");
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		byte[] buffer = new byte[instream.available()];
 
@@ -431,6 +426,7 @@ public class S3Downloader extends S3UserStream {
 	 */
 	private void parseSetupFile() throws IOException {
 		byte[] data = getSetupFile();
+//		System.out.println("Made it");
 		ByteArrayInputStream in = new ByteArrayInputStream(data);
 		Scanner sc = new Scanner(in);
 
@@ -443,12 +439,12 @@ public class S3Downloader extends S3UserStream {
 		
 		String[] specs = sc.nextLine().split(" ");//read
 		
-		sc.close();
-
 		_signalQueue.enqueue(millis);
 		_signalQueue.enqueue(specs[0]);
 		_signalQueue.enqueue(specs[1]);
 		_signalQueue.enqueue(specs[2]);
+
+		sc.close();
 	}
 }
 

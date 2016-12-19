@@ -1,38 +1,36 @@
 package videoUtility;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
-import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
 
-import org.jcodec.api.PictureWithMetadata8Bit;
+import org.jcodec.api.SequenceEncoder8Bit;
 import org.jcodec.api.awt.AWTSequenceEncoder8Bit;
 import org.jcodec.common.io.ByteBufferSeekableByteChannel;
 import org.jcodec.common.io.SeekableByteChannel;
 import org.jcodec.common.logging.Logger;
-import org.jcodec.common.model.ColorSpace;
+import org.jcodec.common.model.Picture8Bit;
 import org.jcodec.common.model.Rational;
+import org.jcodec.containers.mp4.Brand;
+import org.jcodec.containers.mp4.TrackType;
+import org.jcodec.containers.mp4.muxer.FramesMP4MuxerTrack;
+import org.jcodec.containers.mp4.muxer.MP4Muxer;
 import org.jcodec.scale.AWTUtil;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfByte;
-import org.opencv.imgcodecs.Imgcodecs;
 
 public class ICCFrameWriter {
 	
 	private final int VIDEO_SIZE = 300_000;//allocated for buffer
 
 	private int _fps;
-	private AWTSequenceEncoder8Bit _enc;
+	private SequenceEncoder8Bit _enc;
 	private Mat _mat;
 	private ByteBuffer _buffer;
 	private SeekableByteChannel _channel;
-	private String _extension = ".jpg";
 
 //-----------------------------------------------------------------------------
 //PUBLIC METHODS
@@ -67,7 +65,6 @@ public class ICCFrameWriter {
 	public ByteBuffer getData(){
 		return _buffer;
 	}
-
 	
 	//-------------------------------------------------------------------------
 	//SET METHODS
@@ -132,8 +129,9 @@ public class ICCFrameWriter {
 		try{
 			int size = (int) _channel.position();
 			_enc.finish();
-			_buffer.position(0);
+//			_buffer.position(0);
 //			Logger.debug("Channel: " + size);
+//			_buffer = NIOUtils.fetchFromChannel(_channel, _channel.position());
 			trimBuffer(size);
 			Logger.debug("SegmentSize: " + (_buffer.array().length));
 //			DprintBuffer();
@@ -173,12 +171,11 @@ public class ICCFrameWriter {
 		
 		//write image to output
 		try{
-			PictureWithMetadata8Bit pic;
-			BufferedImage img = matToBufferedImage();
-			pic = new PictureWithMetadata8Bit(
-					AWTUtil.fromBufferedImage8Bit(img, ColorSpace.GREY),
-					timeStamp, duration);
-			_enc.encodeImage(img);
+//			ColorSpace cs = ColorSpace.GREY;
+			BufferedImage img = matToBufferedImage(_mat);
+			Picture8Bit pic = AWTUtil.fromBufferedImageRGB8Bit(img); 
+//			_enc.encodeNativeFrame(AWTUtil.fromBufferedImage8Bit(img, cs));
+			_enc.encodeNativeFrame(pic);
 		}catch(Exception e){
 			e.printStackTrace();
 		}
@@ -196,13 +193,24 @@ public class ICCFrameWriter {
 	 * @return The compressed image
 	 * @throws IOException
 	 */
-	private BufferedImage matToBufferedImage() throws IOException {
-		MatOfByte matBuffer = new MatOfByte();
-		Imgcodecs.imencode(_extension, _mat, matBuffer);
-		InputStream inStream = new ByteArrayInputStream(matBuffer.toArray());
-		BufferedImage img = ImageIO.read(inStream);
-		inStream.close();
-		return img;
+	private BufferedImage matToBufferedImage(Mat in) throws IOException {
+		byte[] data = new byte[in.width() * in.height() * (int)in.elemSize()];
+		int type;
+        BufferedImage out;
+
+        in.get(0, 0, data);
+
+        if(in.channels() == 1){
+            type = BufferedImage.TYPE_BYTE_GRAY;
+        }
+        else{
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        
+        out = new BufferedImage(in.width(), in.height(), type);
+        out.getRaster().setDataElements(0, 0, in.width(), in.height(), data);
+
+        return out;
 	}
 	
 	/**
@@ -212,15 +220,15 @@ public class ICCFrameWriter {
 	 * @throws 	IOException
 	 * @see		ImageWriter
 	 */
-	private void initEncoder() throws IOException,
-			NoSuchElementException {
-		_buffer = null;
+	private void initEncoder() throws IOException, NoSuchElementException {
+		_buffer = null; _channel = null; _enc = null;
 		_buffer = ByteBuffer.allocate(VIDEO_SIZE);
-//		for(int i=0; i < 1000; i++){
-//			_buffer.array()[i] = 0;
-//		}
 		_channel = new ByteBufferSeekableByteChannel(_buffer);
-		_enc = new AWTSequenceEncoder8Bit(_channel, new Rational(_fps, 1));
+//		MP4Muxer muxer = MP4Muxer.createMP4Muxer(_channel, Brand.MP4);
+//		FramesMP4MuxerTrack track = muxer.addTrack(TrackType.VIDEO, _fps);
+		
+		_enc = new AWTSequenceEncoder8Bit(_channel, new Rational(1000, _fps));
+		_enc.getEncoder().setKeyInterval(_fps);
 	}
 
 	private void trimBuffer(int newSize){
@@ -234,7 +242,7 @@ public class ICCFrameWriter {
 	//-------------------------------------------------------------------------
 	private void DprintBuffer(){
 		byte[] bArr = _buffer.array();
-		int size = bArr.length;
+//		int size = bArr.length;
 //		for(int i =0; i< size; i++){
 		for(int i =0; i< 1000; i++){
 			System.out.print(bArr[i]);

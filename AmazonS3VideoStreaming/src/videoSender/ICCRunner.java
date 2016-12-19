@@ -92,7 +92,6 @@ public class ICCRunner extends VideoSource {
 	//Private variables
 	//-------------------------------------------------------------------------
 	private Mat _mat;
-	private Point _timeStampLocation;
 
 	//-------------------------------------------------------------------------
 	//DVC
@@ -154,13 +153,13 @@ public class ICCRunner extends VideoSource {
 		int segmentLength = (int)(_setup.getFPS() * _setup.getSegmentLength());
 		boolean preloaded = false;
 		double timeStarted;
+		Point timeStampLocation = new Point(10, 20);
 		ICCFrameWriter segmentWriter = new ICCFrameWriter(_mat, FPS);
 		VideoCapture grabber = null;
 		VideoSegment segment = new VideoSegment();
 
 		try{
 			grabber = _setup.getVideoCapture();
-			_timeStampLocation = new Point(10, 20);
 		}
 		catch(Exception e){
 			System.err.println("ERROR 100: Failed to open recording device");
@@ -178,10 +177,9 @@ public class ICCRunner extends VideoSource {
 					Utility.pause(15);
 					continue;
 				}
-				Imgproc.putText(_mat, getTime(),
-						_timeStampLocation,
+				Imgproc.putText(_mat, getTime(), timeStampLocation,
 						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
-				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
+//				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
 
 				_display.setCurrentFrame(this.getCurrentFrame());
 				segmentWriter.write();
@@ -203,8 +201,8 @@ public class ICCRunner extends VideoSource {
 					}
 
 					if(preloaded){
-						oldestSegment = ++oldestSegment % MAX_VIDEO_INDEX;
 						deleteOldSegments(currentSegment);
+						oldestSegment = ++oldestSegment % MAX_VIDEO_INDEX;
 					}
 					else if(currentSegment == MAX_SEGMENTS){
 						preloaded = true;
@@ -306,9 +304,9 @@ public class ICCRunner extends VideoSource {
 	 * @see S3Uploader, ICCSetup
 	 */
 	private static void sendSetupFile(long time){
-		int frames = (int)(_setup.getFPS() * _setup.getSegmentLength());
+//		int frames = (int)(_setup.getFPS() * _setup.getSegmentLength());
 //		int headerSize = (frames * Integer.BYTES) + Long.BYTES;
-		int headerSize = (frames * 4) + 8;
+//		int headerSize = (frames * 4) + 8;
 		FileWriter fw = null;
 		String filename = FileData.SETUP_FILE.print();
 		try{
@@ -421,8 +419,10 @@ public class ICCRunner extends VideoSource {
 			h = _mat.rows();
 		byte[] dat = new byte[w * h * _mat.channels()];
 
+//		BufferedImage img = new BufferedImage(w, h, 
+//				BufferedImage.TYPE_BYTE_GRAY);
 		BufferedImage img = new BufferedImage(w, h, 
-				BufferedImage.TYPE_BYTE_GRAY);
+				BufferedImage.TYPE_3BYTE_BGR);
 
 		_mat.get(0, 0, dat);
 		img.getRaster().setDataElements(0, 0, 

@@ -4,6 +4,7 @@ import videoUtility.Calculate;
 //local package
 import videoUtility.DisplayFrame;
 import videoUtility.FileData;
+import videoUtility.ICCFrameReader;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
 import videoUtility.VideoSegment;
@@ -95,12 +96,9 @@ public class VideoPlayer extends VideoSource {
 		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
 
 		double fps = Double.parseDouble(_specs[1]);
-		double timeStamp = -1.0;
+//		double timeStamp = -1.0;
 		BufferedImage img;
-		ByteBuffer buffer;
-		FrameGrab8Bit grabber;
-		Picture8Bit pic;
-		SeekableByteChannel channel;
+		ICCFrameReader reader;
 		VideoSegment videoSegment = null;
 
 		System.out.println("Starting video player...");
@@ -115,22 +113,16 @@ public class VideoPlayer extends VideoSource {
 					stream.getSegment();
 				}
 				videoSegment = stream.getSegment();
-				buffer = ByteBuffer.wrap(videoSegment.data());
-				channel = new ByteBufferSeekableByteChannel(buffer);
-				grabber = FrameGrab8Bit.createFrameGrab8Bit(channel);
-				timeStamp = grabber.getNativeFrameWithMetadata().getTimestamp();
-				logDelay(timeStamp);
+				reader = new ICCFrameReader(videoSegment.data());
+//				logDelay(timeStamp);
 				System.out.println("Playing '" + videoSegment.toString() + "'");
 
-				while((pic = grabber.getNativeFrame()) != null){
-					img = AWTUtil.toBufferedImage8Bit(pic);
+				while((img = reader.readImage()) != null){
 					_display.setCurrentFrame(img);
 					Utility.pause((long)(1000/fps));
 				}
-				
-				buffer = null;
-				channel = null;
-				grabber = null;
+				reader.close();
+				reader = null;
 				videoSegment = null;
 				
 			} catch (Exception e) {
@@ -184,7 +176,8 @@ public class VideoPlayer extends VideoSource {
 		_specs[0] = _signalQueue.dequeue();//compression
 		_specs[1] = _signalQueue.dequeue();//FPS
 		_specs[2] = _signalQueue.dequeue();//segmentLength
-
+		System.out.println("PLAYER(segLen): " + _specs[2]);
+		
 		if(!FileData.ISLOGGING.isTrue()) return;
 
 		writeGNUPlotScript(logFolder+plog, logFolder+s3log, script);
@@ -196,6 +189,7 @@ public class VideoPlayer extends VideoSource {
 		} catch (Exception e){
 			System.err.println("Failed to create VP logger");
 		}
+		System.out.println("Setup file successfully loaded!");
 	}
 	
 	/**

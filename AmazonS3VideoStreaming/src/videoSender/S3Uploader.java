@@ -125,7 +125,7 @@ public class S3Uploader extends S3UserStream {
 				
 				System.out.println("S3: Uploading file '" + _key + "'...");
 				
-				uploadSegment(_transferMGMT, bin, _key, segSz);
+				uploadSegment(_transferMGMT, bin, _key, segSz);//could clean method to only take segment
 				logUpload(timeReceived);
 
 				_key = null;
