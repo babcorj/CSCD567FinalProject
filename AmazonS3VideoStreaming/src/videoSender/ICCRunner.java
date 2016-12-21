@@ -218,9 +218,9 @@ public class ICCRunner extends VideoSource {
 				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
-				if(e.getMessage().equals("closed")){
-					break;
-				}
+//				if(e.getMessage().equals("closed")){
+//					break;
+//				}
 				e.printStackTrace();
 			}
 		}//end while

@@ -3,6 +3,7 @@ package videoUtility;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
@@ -10,16 +11,25 @@ import javax.imageio.ImageWriter;
 
 import org.jcodec.api.SequenceEncoder8Bit;
 import org.jcodec.api.awt.AWTSequenceEncoder8Bit;
+import org.jcodec.codecs.h264.H264Encoder;
+import org.jcodec.codecs.h264.H264Utils;
+import org.jcodec.codecs.h264.io.model.NALUnit;
+import org.jcodec.codecs.h264.io.model.NALUnitType;
 import org.jcodec.common.io.ByteBufferSeekableByteChannel;
+import org.jcodec.common.io.NIOUtils;
 import org.jcodec.common.io.SeekableByteChannel;
 import org.jcodec.common.logging.Logger;
+import org.jcodec.common.model.ColorSpace;
 import org.jcodec.common.model.Picture8Bit;
 import org.jcodec.common.model.Rational;
 import org.jcodec.containers.mp4.Brand;
+import org.jcodec.containers.mp4.MP4Packet;
 import org.jcodec.containers.mp4.TrackType;
 import org.jcodec.containers.mp4.muxer.FramesMP4MuxerTrack;
 import org.jcodec.containers.mp4.muxer.MP4Muxer;
 import org.jcodec.scale.AWTUtil;
+import org.jcodec.scale.ColorUtil;
+import org.jcodec.scale.Transform8Bit;
 import org.opencv.core.Mat;
 
 public class ICCFrameWriter {
@@ -27,11 +37,22 @@ public class ICCFrameWriter {
 	private final int VIDEO_SIZE = 300_000;//allocated for buffer
 
 	private int _fps;
+	private int _frame;
+	private ArrayList<ByteBuffer> _spsList;
+	private ArrayList<ByteBuffer> _ppsList;
+	private ByteBuffer _sps;
+	private ByteBuffer _pps;
 	private SequenceEncoder8Bit _enc;
 	private Mat _mat;
 	private ByteBuffer _buffer;
+	private ByteBuffer _out;
+	private FramesMP4MuxerTrack _track;
+	private H264Encoder _encoder;
+	private MP4Muxer _muxer;
 	private SeekableByteChannel _channel;
-
+	private Picture8Bit _toEncode;
+	private Transform8Bit _transform;
+	
 //-----------------------------------------------------------------------------
 //PUBLIC METHODS
 //-----------------------------------------------------------------------------
@@ -52,11 +73,16 @@ public class ICCFrameWriter {
 	public ICCFrameWriter(Mat mat, int fps) {
 		_fps = fps;
 		_mat = mat;
+		_out = ByteBuffer.allocate(1920 * 1080 * 6);
 		try {
 			initEncoder();
 		} catch (NoSuchElementException | IOException e) {
 			e.printStackTrace();
 		}
+		_transform = ColorUtil.getTransform8Bit(
+				ColorSpace.RGB, _encoder.getSupportedColorSpaces()[0]);
+        _spsList = new ArrayList<ByteBuffer>();
+        _ppsList = new ArrayList<ByteBuffer>();
 	}
 	
 	//-------------------------------------------------------------------------
@@ -128,7 +154,10 @@ public class ICCFrameWriter {
 	public void complete(){
 		try{
 			int size = (int) _channel.position();
-			_enc.finish();
+	        _track.addSampleEntry(H264Utils.createMOVSampleEntryFromBuffer(_sps, _pps, 4));
+			_muxer.writeHeader();
+			_channel.close();
+//			_enc.finish();
 //			_buffer.position(0);
 //			Logger.debug("Channel: " + size);
 //			_buffer = NIOUtils.fetchFromChannel(_channel, _channel.position());
@@ -168,17 +197,52 @@ public class ICCFrameWriter {
 	public void write() throws IOException {
 		assert(_mat != null);
 		assert(_enc != null);
-		
 		//write image to output
-		try{
+//		try{
 //			ColorSpace cs = ColorSpace.GREY;
-			BufferedImage img = matToBufferedImage(_mat);
-			Picture8Bit pic = AWTUtil.fromBufferedImageRGB8Bit(img); 
+//			BufferedImage img = matToBufferedImage(_mat);
+//			Picture8Bit pic = AWTUtil.fromBufferedImageRGB8Bit(img); 
 //			_enc.encodeNativeFrame(AWTUtil.fromBufferedImage8Bit(img, cs));
-			_enc.encodeNativeFrame(pic);
-		}catch(Exception e){
-			e.printStackTrace();
-		}
+//			_enc.encodeNativeFrame(pic);
+//        }
+//	}catch(Exception e){
+//		e.printStackTrace();
+//	}
+		BufferedImage img = matToBufferedImage(_mat);
+		Picture8Bit pic = AWTUtil.fromBufferedImageRGB8Bit(img); 
+
+		if(_toEncode == null)
+			_toEncode = Picture8Bit.create(pic.getWidth(), pic.getHeight(), _encoder.getSupportedColorSpaces()[0]);
+
+        // Perform conversion
+        _transform.transform(pic, _toEncode);
+
+        // Encode image into H.264 frame, the result is stored in '_out' buffer
+        _out.clear();
+        ByteBuffer result = _encoder.encodeFrame8Bit(_toEncode, _out);
+
+        // Based on the frame above form correct MP4 packet
+        _spsList.clear();
+        _ppsList.clear();
+        H264Utils.wipePSinplace(result, _spsList, _ppsList);
+//        H264Utils.wipePSinplace(result, null, null);
+        NALUnit nu = NALUnit.read(NIOUtils.from(result.duplicate(), 4));
+        H264Utils.encodeMOVPacket(result);
+
+        // We presume there will be only one SPS/PPS pair for now
+        if (_sps == null && _spsList.size() != 0)
+            _sps = _spsList.get(0);
+        if (_pps == null && _ppsList.size() != 0)
+            _pps = _ppsList.get(0);
+
+        // Add packet to video track
+        int timestamp = 0;
+        _track.addFrame(MP4Packet.createMP4Packet(result, timestamp, _fps, 1, _frame,
+                false, null, 0, timestamp, 0));
+
+//        timestamp += fps.getDen();
+        _frame++;
+
 //		Logger.debug("Output: " + _channel.position());
 		
 	}
@@ -221,14 +285,17 @@ public class ICCFrameWriter {
 	 * @see		ImageWriter
 	 */
 	private void initEncoder() throws IOException, NoSuchElementException {
+		_frame = 0;
 		_buffer = null; _channel = null; _enc = null;
 		_buffer = ByteBuffer.allocate(VIDEO_SIZE);
 		_channel = new ByteBufferSeekableByteChannel(_buffer);
-//		MP4Muxer muxer = MP4Muxer.createMP4Muxer(_channel, Brand.MP4);
-//		FramesMP4MuxerTrack track = muxer.addTrack(TrackType.VIDEO, _fps);
-		
-		_enc = new AWTSequenceEncoder8Bit(_channel, new Rational(1000, _fps));
-		_enc.getEncoder().setKeyInterval(_fps);
+		_muxer = MP4Muxer.createMP4Muxer(_channel, Brand.MP4);
+		_track = _muxer.addTrack(TrackType.VIDEO, _fps);
+		_encoder = H264Encoder.createH264Encoder();
+		_encoder.setKeyInterval(_fps);
+
+//		_enc = new AWTSequenceEncoder8Bit(_channel, new Rational(1000, _fps));
+//		_enc.getEncoder().setKeyInterval(_fps);
 	}
 
 	private void trimBuffer(int newSize){
