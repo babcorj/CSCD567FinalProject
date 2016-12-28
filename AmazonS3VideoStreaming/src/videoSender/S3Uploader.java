@@ -23,8 +23,8 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
 
+import performance.PerformanceLogger;
 import videoUtility.FileData;
-import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
@@ -203,7 +203,7 @@ public class S3Uploader extends S3UserStream {
 	//Private methods
 	//-------------------------------------------------------------------------	
 	private void closeEverything(){
-		deleteAllSegments();
+//		deleteAllSegments();
 		if(!FileData.ISLOGGING.isTrue()) return;
 		try{
 			_logger.close();
@@ -244,7 +244,7 @@ public class S3Uploader extends S3UserStream {
 
 		try {
 			_logger.log(" ");
-			_logger.log(value);
+			_logger.logVideoTransfer(value);
 			_logger.log("\n");
 		} catch (IOException e) {
 			System.err.println("S3: Failed to log upload!");

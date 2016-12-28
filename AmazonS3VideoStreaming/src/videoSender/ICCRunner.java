@@ -5,7 +5,6 @@ import videoUtility.DisplayFrame;
 import videoUtility.FileData;
 import videoUtility.VideoSegmentHeader;
 import videoUtility.ICCFrameWriter;
-import videoUtility.PerformanceLogger;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
 import videoUtility.VideoSegment;
@@ -28,6 +27,7 @@ import org.opencv.imgproc.Imgproc;
 import GNUPlot.GNUScriptParameters;
 import GNUPlot.GNUScriptWriter;
 import GNUPlot.PlotObject;
+import performance.PerformanceLogger;
 
 /**
  * 
@@ -218,7 +218,7 @@ public class ICCRunner extends VideoSource {
 					frameCount = 0;
 					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
 				}
-//				Utility.pause((long) (1000/_setup.getFPS()));
+				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
 				if(e.getMessage().equals("closed")){
@@ -463,7 +463,7 @@ public class ICCRunner extends VideoSource {
 		_logger.logTime();
 		try {
 			_logger.log(" ");
-			_logger.log(value);
+			_logger.logVideoTransfer(value);
 			_logger.log("\n");
 		} catch (IOException e) {
 			System.err.println("ICCR: Failed to log video segment");

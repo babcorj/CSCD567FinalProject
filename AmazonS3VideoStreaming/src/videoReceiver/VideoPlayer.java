@@ -12,6 +12,7 @@ import videoUtility.VideoSource;
 import java.awt.image.BufferedImage;
 //Java package
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -23,7 +24,7 @@ import org.opencv.core.*;
 import GNUPlot.GNUScriptParameters;
 import GNUPlot.GNUScriptWriter;
 import GNUPlot.PlotObject;
-import videoUtility.PerformanceLogger;
+import performance.PerformanceLogger;
 
 /**
  * 
@@ -45,6 +46,8 @@ public class VideoPlayer extends VideoSource {
 	//Member Variables
 	//-------------------------------------------------------------------------
 	static final long TIME_OFFSET = -25259;
+	
+	private static long _programStartTime;
 	
 	private static DisplayFrame _display;
 	private static List<Double> _records;
@@ -73,7 +76,7 @@ public class VideoPlayer extends VideoSource {
 	//Main
 	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
-		
+		_programStartTime = System.currentTimeMillis();
 //		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		VideoPlayer player = new VideoPlayer();
@@ -91,35 +94,49 @@ public class VideoPlayer extends VideoSource {
 	public void run() {
 		Runtime.getRuntime().addShutdownHook(new VideoPlayerShutdownHook(this));
 
+		double endPlayTime, startPlayTime;
 		double fps = Double.parseDouble(_specs[1]);
+		long imgSize;
+		
 		LinkedList<BufferedImage> frameList;
 		VideoSegment videoSegment = null;
-
+		_logger.logConnectTime((System.currentTimeMillis() - _programStartTime)/1000);
+		endPlayTime = System.currentTimeMillis()/1000;
 		System.out.println("Starting video player...");
 
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
-//			System.out.printf("Time played: %.2f\n", (float) (System.currentTimeMillis() - startTime)/1000);
-//			double timeStarted = (double)((System.currentTimeMillis() - _logger.getStartTime())/1000);
 			try {
 				//Always get most current frame
 				while(stream.size() > 1){
-					stream.getFrame();
+					stream.getVideoSegment();
+					_logger.logSegmentDrop();
 				}
-				videoSegment = stream.getFrame();
-				logDelay(videoSegment.getTimeStamp());
+				if(stream.isEmpty()){ _logger.logBufferEvent(); }
+				videoSegment = stream.getVideoSegment();
+				_logger.logSegmentPlay();
+				logVideoTransfer(videoSegment.getTimeStamp());
 				frameList = videoSegment.getImageList();
+				imgSize = videoSegment.size()/frameList.size();
 				System.out.println("Playing '" + videoSegment.toString() + "'");
-
+				startPlayTime = System.currentTimeMillis()/1000;
+				_logger.logBuffer(startPlayTime - endPlayTime);
+				
 				for(BufferedImage img : frameList){
 					_display.setCurrentFrame(img);
+					_logger.logBytes(imgSize);
 					Utility.pause((long)(1000/fps));
 				}
+				
+				endPlayTime = System.currentTimeMillis()/1000;
+				_logger.logPlay(endPlayTime - startPlayTime);
+
 			} catch (Exception e) {
 				if(_isDone) continue;
 				System.err.println("VP: Problem reading video file: " + videoSegment.toString());
 			}
 		}
+		writeMetrics();
 		closeEverything();
 		
 		System.out.println("VideoPlayer successfully closed");
@@ -211,6 +228,29 @@ public class VideoPlayer extends VideoSource {
 		}
 	}
 	
+	private static void writeMetrics(){
+		try {
+			FileWriter fw = new FileWriter("videoStreamMetrics.txt");
+
+			fw.write("Bit Rate: " + _logger.getBitRate() + "\n");
+			fw.write("Play Time: " + _logger.getTimePlayed() + "\n");
+			fw.write("Buffer Time: " + _logger.getTimeBuffered() + "\n");
+			fw.write("Connect Time: " + _logger.getConnectTime() + "\n");
+			fw.write("Total Buffer Time: " + _logger.getTimeTotalBuffer() + "\n");
+			fw.write("Lag Ratio: " + _logger.getLagRatio() + "\n");
+			fw.write("Buffer Events: " + _logger.getBufferEvents() + "\n");
+			fw.write("Connection Success Rate: " + _logger.getCSR() + "\n");
+			fw.write("Segments Played: " + _logger.getPlays() + "\n");
+			fw.write("segments Dropped: " + _logger.getDrops() + "\n");
+			fw.write("Average Delay: " + _logger.getDelayAverage() + "\n");
+			fw.close();
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+			return;
+		}
+	}
+	
 	//-------------------------------------------------------------------------
 	//Private non-static methods
 	//-------------------------------------------------------------------------
@@ -234,20 +274,17 @@ public class VideoPlayer extends VideoSource {
 	 * Logs the time the video was sent versus the time the video was received.
 	 * @param videoSegment	The video segment to be played.
 	 */
-	private void logDelay(long timeStamp){
+	private void logVideoTransfer(long timeStamp){
 		if(!FileData.ISLOGGING.isTrue()) return;
 
 		double timeElapsed = (double)((System.currentTimeMillis() + TIME_OFFSET
 				- _logger.getStartTime())/1000);
-//		System.out.println("Elapsed: " + timeElapsed);
 		double videoStart = ((double)(timeStamp - _logger.getStartTime())/1000);
-//		System.out.println("VideoStart: " + videoStart);
 		double delay = timeElapsed - videoStart;
-//		System.out.println("Player(Delay): " + (delay));
 		try {
 			_logger.logTime();
 			_logger.log(" ");
-			_logger.log((delay));
+			_logger.logVideoTransfer((delay));
 			_logger.log("\n");
 		} catch (IOException e) {
 			System.err.println("VP: Failed to log video segment...");

@@ -11,7 +11,7 @@ package videoUtility;
 public enum FileData {
 	BUCKET				("icc-videostream-00"),
 	INDEXFILE 			("playlist.txt"),
-	ISLOGGING			(false),
+	ISLOGGING			(true),
 	LOG_DIRECTORY 		("log/"),
 	PLAYER_LOG			("VideoPlayerLog.txt"),
 	S3UPLOADER_LOG		("S3UploaderLog.txt"),

@@ -3,7 +3,6 @@ package videoReceiver;
 import videoUtility.Utility;
 import videoUtility.VideoSegment;
 import videoUtility.FileData;
-import videoUtility.PerformanceLogger;
 import videoUtility.S3UserStream;
 import videoUtility.SharedQueue;
 
@@ -30,6 +29,9 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import performance.PerformanceLogger;
+
 import com.amazonaws.services.s3.model.ObjectListing;
 
 /**
@@ -115,12 +117,16 @@ public class S3Downloader extends S3UserStream {
 			//---------------------------------------------------------------------		
 			System.out.println("Obtaining videostream from S3...\n");
 
+			int[] vIndexDebug = new int[1];
+			vIndexDebug[0] = 9;
+			
 			while (!_isDone) {
 				try{
-					if((_key = getCurrentVideo()) == null){
-						Utility.pause(15);
-						continue;
-					}
+//					if((_key = getCurrentVideo()) == null){
+//						Utility.pause(15);
+//						continue;
+//					}
+					_key = getCurVidDEBUG(vIndexDebug, 10);
 					System.out.println("Downloading file: " + _key);
 	
 					videoData = getFileData(_key);
@@ -230,6 +236,7 @@ public class S3Downloader extends S3UserStream {
 	}
 	
 	private int getCurrentIndex(int[] indeces){
+		int debugOffset = 0;
 		Arrays.sort(indeces);
 		if(indeces[indeces.length-1] == _maxIndex-1){
 			if(indeces[0] == 0){
@@ -237,19 +244,16 @@ public class S3Downloader extends S3UserStream {
 				for(int i = 0; i < indeces.length-1; i++){
 					//would like to just return i here, but sometimes
 					//files are deleted out of order
-					if((indeces[i+1] - indeces[i] >= _maxSegmentsSaved-1)){
-						index = i;
-						return index;
-					}
-					if(index >= 0){
-						return index;
+					if((indeces[i+1] - indeces[i] >= _maxSegmentsSaved-1)
+							|| (index >= 0)){
+						return indeces[i] - debugOffset;
 					}
 				}
 			}
 		}
-		return indeces[indeces.length-1];
+		return indeces[indeces.length-1] - debugOffset;
 	}
-
+	
 	//Set to always look for future video
 	private String getCurrentVideo() throws IOException{
 		int tempIndex;
@@ -284,6 +288,17 @@ public class S3Downloader extends S3UserStream {
 		return (prefix + nextIndex + suffix);
 	}
 
+	private String getCurVidDEBUG(int[] startIndex, int maxIndex){
+		String prefix = FileData.VIDEO_PREFIX.print();
+		String suffix = FileData.VIDEO_SUFFIX.print();
+		
+		int num = startIndex[0];
+		
+		startIndex[0] = (num+1) % maxIndex;
+		
+		return prefix + num + suffix;
+	}
+	
 	/**
 	 * Retrieves the data located inside of the bucket indicated by key.
 	 * @param _key	The file to be retrieved from S3.
@@ -416,7 +431,7 @@ public class S3Downloader extends S3UserStream {
 		try {
 			_logger.logTime();
 			_logger.log(" ");
-			_logger.log(lag);
+			_logger.logVideoTransfer(lag);
 			_logger.log("\n");
 		} catch (IOException e) {
 			System.err.println("S3: Unable to log download!");

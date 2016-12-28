@@ -1,5 +1,6 @@
 package videoReceiver;
 
+import performance.PerformanceLogger;
 import videoUtility.SharedQueue;
 import videoUtility.VideoSegment;
 
@@ -30,9 +31,14 @@ public class VideoStream {
 		video.getImageList();//turns byte[] data into BufferedImage list
 		_stream.enqueue(video);
 	}
-	public VideoSegment getFrame() {
+	public VideoSegment getVideoSegment() {
 		return _stream.dequeue();
 	}
+	
+	public boolean isEmpty(){
+		return _stream.isEmpty();
+	}
+	
 	public int size(){
 		return _stream.size();
 	}
