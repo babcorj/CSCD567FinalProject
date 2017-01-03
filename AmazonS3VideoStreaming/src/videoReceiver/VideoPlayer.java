@@ -44,7 +44,7 @@ public class VideoPlayer extends VideoSource {
 	//Member Variables
 	//-------------------------------------------------------------------------
 	//testing
-	private static final int NUM_OF_TESTS = 0;
+	private static final int NUM_OF_TESTS = 1;
 	private static final int SEGS_T0_PLAY = 10;	
 	private int _tests = 0;
 

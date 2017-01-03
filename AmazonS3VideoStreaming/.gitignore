@@ -2,4 +2,6 @@ videos
 bin
 .classpath
 *.txt
-
+*.p
+ServerBitRate
+*.csv
