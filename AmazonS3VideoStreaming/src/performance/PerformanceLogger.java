@@ -7,15 +7,16 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 
 public class PerformanceLogger {
-	static final long TIME_OFFSET = -25259;
+//	static final long TIME_OFFSET = 0;
 	
 	private int _bufferEvents = 0;
-	private double _connectTime = 0;
+	private double _connectTime = 0.0;
 	private int _segmentDrops = 0;
 	private int _segmentPlays = 0;
+	private double _serverBitRate = 0.0;
 	private long _startTime = 0;
-	private double _timeBuffered = 0;
-	private double _timePlayed = 0;
+	private double _timeBuffered = 0.0;
+	private double _timePlayed = 0.0;
 	private long _totalBytes = 0;
 
 	private ArrayList<Double> _delay;
@@ -27,15 +28,87 @@ public class PerformanceLogger {
 		_delay = new ArrayList<>();
 		_fw = new FileWriter((_folder=location) + (_filename=filename));
 	}
+
+//-------------------------------------------------------------------------------------------------
+//MISC METHODS
+//-------------------------------------------------------------------------------------------------
 	
 	public void close() throws IOException { _fw.close(); }
+
+	public void reset(){
+		_bufferEvents = 0;
+		_connectTime = 0.0;
+		_segmentDrops = 0;
+		_segmentPlays = 0;
+		_startTime = 0;
+		_timeBuffered = 0.0;
+		_timePlayed = 0.0;
+		_totalBytes = 0;
+		_delay = new ArrayList<>();
+	}
 	
-	public double getBitRate(){ return (_totalBytes * 8)/_timePlayed; }
+	@Override
+	public String toString(){
+		DecimalFormat df = new DecimalFormat("#.##");
+		StringBuilder sb = new StringBuilder();
+
+		sb.append("Bit Rate: " + (df.format(((getBitRate()*8)/1000.0)) + " Kbps\n"));
+		sb.append("Server Bit Rate: " + (df.format(_serverBitRate/1000.0) + " Kbps\n"));
+		sb.append("Play Time: " + df.format(getTimePlayed()) + "\n");
+		sb.append("Buffer Time: " + df.format(getTimeBuffered()) + "\n");
+		sb.append("Connect Time: " + df.format(getConnectTime()) + "\n");
+		sb.append("Total Buffer Time: " + df.format(getTimeTotalBuffer()) + "\n");
+		sb.append("Lag Ratio: " + df.format(getLagRatio()) + "\n");
+		sb.append("Average Delay: " + df.format(getDelayAverage()) + " sec\n");
+		sb.append("Segments Played: " + getPlays() + "\n");
+		sb.append("segments Dropped: " + getDrops() + "\n");
+		sb.append("Buffer Events: " + getBufferEvents() + "\n");
+		sb.append("Connection Success Rate: " + df.format(getCSR()*100) + "%\n");
+		
+		return sb.toString();
+	}
+
+	public String toCSV(){
+		DecimalFormat df = new DecimalFormat("#.##");
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append(df.format(((getBitRate()*8)/1000)) + ", ");
+		sb.append(df.format(_serverBitRate/1000) + ", ");
+		sb.append(df.format(getTimePlayed()) + ", ");
+		sb.append(df.format(getTimeBuffered()) + ", ");
+		sb.append(df.format(getConnectTime()) + ", ");
+		sb.append(df.format(getTimeTotalBuffer()) + ", ");
+		sb.append(df.format(getLagRatio()) + ", ");
+		sb.append(df.format(getDelayAverage()) + ", ");
+		sb.append(getPlays() + ", ");
+		sb.append(getDrops() + ", ");
+		sb.append(getBufferEvents() + ", ");
+		sb.append(df.format(getCSR()*100) + "\n");
+		
+		return sb.toString();
+	}
+	
+	public String toCSVwHeader(){
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append("BitRate, ServerBitRate, PlayTime, BufferTime, ConnectTime, LagTime, LagRatio, AvgDelay, SegPlayed, SegDropped, BufferEvents, CSR\n");
+		sb.append(toCSV());
+		
+		return sb.toString();
+	}
+	
+//-------------------------------------------------------------------------------------------------
+//GETS
+//-------------------------------------------------------------------------------------------------
+	
+	public double getBitRate(){ return ((double)_totalBytes/_timePlayed); }
+	
+	public double getBitRateServer(){ return _serverBitRate; }
 	
 	public int getBufferEvents(){ return _bufferEvents; }
 	
 	//Connection Success Rate
-	public double getCSR(){ return (_segmentPlays - _bufferEvents)/_segmentPlays; }
+	public double getCSR(){ return ((double)(_segmentPlays - _bufferEvents))/_segmentPlays; }
 	
 	public long getBytesPlayed(){ return _totalBytes; }
 	
@@ -81,6 +154,10 @@ public class PerformanceLogger {
 		return _timeBuffered + _connectTime;
 	}
 
+//-------------------------------------------------------------------------------------------------
+//LOGS
+//-------------------------------------------------------------------------------------------------
+	
 	public void log(String str) throws IOException {
 		try{
 			_fw.write(str);
@@ -106,7 +183,7 @@ public class PerformanceLogger {
 	
 	public void logConnectTime(double connectTime){ _connectTime = connectTime; }
 	
-	public void logDelay(double delay){ _delay.add(delay); }
+	public void logDelay(double delay){ _delay.add(Math.abs(delay)); }
 
 	public void logPlay(double time){ _timePlayed += time; }
 	
@@ -114,8 +191,10 @@ public class PerformanceLogger {
 	
 	public void logSegmentPlay(){ _segmentPlays++; }
 	
+	public void logServerBitRate(double serverBitRate){ _serverBitRate = serverBitRate; }
+	
 	public void logTime(){
-		double cur = System.currentTimeMillis() + TIME_OFFSET;
+		double cur = System.currentTimeMillis(); //+ TIME_OFFSET;
 		double startTime = _startTime;
 		double timelapse = (cur - startTime)/1000;
 		DecimalFormat formatter = new DecimalFormat("#.000");
@@ -143,8 +222,14 @@ public class PerformanceLogger {
 			System.err.println("Logging error:" + number);
 		}
 	}
+
+//-------------------------------------------------------------------------------------------------
+//SETS
+//-------------------------------------------------------------------------------------------------
 	
 	public void setStartTime(long time){ _startTime = time; }
 	
-	public void startTime(){ _startTime = System.currentTimeMillis(); }
+	public void setStartTime(){ _startTime = System.currentTimeMillis(); }
+	
+	
 }

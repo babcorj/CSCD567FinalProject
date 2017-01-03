@@ -67,10 +67,10 @@ public class S3Downloader extends S3UserStream {
 		@Override
 		public void run() {
 			Runtime.getRuntime().addShutdownHook(new S3DownloaderShutdownHook(this));
-			
+
 			byte[] videoData = null;
 			VideoSegment videoSegment = null;
-			
+
 			/*
 			 * AWS IP occasionally changes. This will allow the application to receive
 			 * and use new IP without querying DNS again with TTL being 60 
@@ -122,11 +122,11 @@ public class S3Downloader extends S3UserStream {
 			
 			while (!_isDone) {
 				try{
-//					if((_key = getCurrentVideo()) == null){
-//						Utility.pause(15);
-//						continue;
-//					}
-					_key = getCurVidDEBUG(vIndexDebug, 10);
+					if((_key = getCurrentVideo()) == null){
+						Utility.pause(15);
+						continue;
+					}
+//					_key = getCurVidDEBUG(vIndexDebug, 10);
 					System.out.println("Downloading file: " + _key);
 	
 					videoData = getFileData(_key);
@@ -191,6 +191,18 @@ public class S3Downloader extends S3UserStream {
 			_isDone = true;
 		}
 
+		public String getServerBitRate(){
+			byte[] bitRate = null;
+			try {
+				bitRate = getFileData("ServerBitRate");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			if(bitRate == null) return null;
+
+			return new String(bitRate);
+		}
+		
 	//-------------------------------------------------------------------------
 	//Constructor method
 	//-------------------------------------------------------------------------
@@ -288,16 +300,16 @@ public class S3Downloader extends S3UserStream {
 		return (prefix + nextIndex + suffix);
 	}
 
-	private String getCurVidDEBUG(int[] startIndex, int maxIndex){
-		String prefix = FileData.VIDEO_PREFIX.print();
-		String suffix = FileData.VIDEO_SUFFIX.print();
-		
-		int num = startIndex[0];
-		
-		startIndex[0] = (num+1) % maxIndex;
-		
-		return prefix + num + suffix;
-	}
+//	private String getCurVidDEBUG(int[] startIndex, int maxIndex){
+//		String prefix = FileData.VIDEO_PREFIX.print();
+//		String suffix = FileData.VIDEO_SUFFIX.print();
+//		
+//		int num = startIndex[0];
+//		
+//		startIndex[0] = (num+1) % maxIndex;
+//		
+//		return prefix + num + suffix;
+//	}
 	
 	/**
 	 * Retrieves the data located inside of the bucket indicated by key.
@@ -425,7 +437,7 @@ public class S3Downloader extends S3UserStream {
 	private void logDownload(long timeStamp){
 		if(!FileData.ISLOGGING.isTrue()) return;
 
-		double lag = ((double)(System.currentTimeMillis() + VideoPlayer.TIME_OFFSET
+		double lag = ((double)(System.currentTimeMillis() + //VideoPlayer.TIME_OFFSET
 				- timeStamp)/1000);
 //		System.out.println("Download LAG: " + lag);
 		try {
