@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -46,12 +47,14 @@ public class S3Uploader extends S3UserStream {
 	private AmazonS3 _s3;
 	private PerformanceLogger _logger;
 	private TransferManager _transferMGMT;
-
+	private LinkedList<Double> _bitRateList;
+	
 	//-------------------------------------------------------------------------
 	//Constructor
 	//-------------------------------------------------------------------------	
 	public S3Uploader(SharedQueue<VideoSegment> theque){
 		_stream = theque;
+		_bitRateList = new LinkedList<>();
 	}
 
 	//-------------------------------------------------------------------------
@@ -107,23 +110,38 @@ public class S3Uploader extends S3UserStream {
 		uploadFile(_transferMGMT, setupfile);
 		System.out.println("S3: Setup file successfully sent to S3");
 
-		//Continue to send video segments until end is called and stream is empty
-		while(!_isDone || !_stream.isEmpty()){
+		//testing bit rate parameters
+		long bytesSent = 0;
+		int segmentsPlayed = 0;
+		int segmentsToPlay = 2;
+		long timeStart = System.currentTimeMillis();
+		
+		//Continue to send video segments until end is called
+		while(!_isDone){
+			if(segmentsPlayed >= segmentsToPlay){
+				recordBitRate(bytesSent,timeStart,10);
+				timeStart = System.currentTimeMillis();//bitrate
+				bytesSent = 0;
+				segmentsPlayed = 0;
+//				System.out.println("BitRate recorded");
+			}
 			ObjectMetadata info = new ObjectMetadata();
 			VideoSegment segment;
 			
 			try { //start uploading video stream
-				double timeReceived = (double)((System.currentTimeMillis() - _startTime)/1000);
+				double timeReceived = (double)((System.currentTimeMillis() - _startTime)/1000.0);
 				segment = _stream.dequeue();
 				_key = segment.toString();
 				info.setContentLength(segment.size());
+				bytesSent += segment.size();//bitrate
+
 				ByteArrayInputStream bin = new ByteArrayInputStream(segment.data());
 				
 				System.out.println("S3: Uploading file '" + _key + "'...");
 				
 				uploadSegment(bin, segment.size());
 				logUpload(timeReceived);
-
+				segmentsPlayed++;
 				_key = null;
 
 			} catch (AmazonServiceException ase) {
@@ -160,7 +178,7 @@ public class S3Uploader extends S3UserStream {
 		_startTime = logger.getStartTime();
 	}
 	public void setSignal(SharedQueue<String> signal){
-		_signalQueue = signal;
+		_signalQueue = signal;			
 	}
 	
 	//-------------------------------------------------------------------------
@@ -256,6 +274,32 @@ public class S3Uploader extends S3UserStream {
 		} catch (IOException e) {
 			System.err.println("S3: Failed to log upload!");
 		}
+	}
+	
+	private void recordBitRate(long bytes, long start, int size){
+		double average = 0.0;
+		double timePassed = (System.currentTimeMillis()-start)/1000.0;
+		double bitRate = (bytes*8)/timePassed;
+		byte[] bitRateStream;
+		
+		_bitRateList.addFirst(bitRate);
+		if(_bitRateList.size() > size){
+			_bitRateList.removeLast();
+		}
+		
+		for(Double d : _bitRateList){
+			average += d;
+		}
+		average = average/_bitRateList.size();
+
+		bitRateStream = Double.toString(average).getBytes();
+		System.out.println("Bit rate: " + bitRate);
+		ObjectMetadata info = new ObjectMetadata();
+		ByteArrayInputStream input = new ByteArrayInputStream(bitRateStream);
+
+		info.setContentLength(bitRateStream.length);
+		PutObjectRequest request = new PutObjectRequest(_bucketName, "ServerBitRate", input, info);
+		_s3.putObject(request);
 	}
 	
 	/**

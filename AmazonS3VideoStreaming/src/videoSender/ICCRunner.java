@@ -70,7 +70,7 @@ public class ICCRunner extends VideoSource {
 	 * ICCSetup is used to configure the video recorder settings
 	 */
 	private static ICCSetup _setup = new ICCSetup()
-			.setCompressionRatio(0.4)
+			.setCompressionRatio(1)
 			.setDevice(0)
 			.setFourCC("MJPG")
 			.setFPS(6)
@@ -161,7 +161,6 @@ public class ICCRunner extends VideoSource {
 		VideoSegment segment = new VideoSegment();
 		VideoSegmentHeader header = new VideoSegmentHeader();
 		
-		header.setTimeStamp(System.currentTimeMillis());
 		segmentWriter.setFrames(segmentLength);
 
 		try{
@@ -173,11 +172,13 @@ public class ICCRunner extends VideoSource {
 			System.exit(-1);
 		}
 
-		timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
+		header.setTimeStamp(System.currentTimeMillis());
+		timeStarted = (double)((header.getTimeStamp() - _startTime)/1000.0);
 //		System.out.println("Start time: " + _startTime);
 		
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
+			
 			try {
 				//capture and record video
 				if (!grabber.read(_mat)) {
@@ -221,7 +222,7 @@ public class ICCRunner extends VideoSource {
 					currentSegment = incrementVideoSegment(currentSegment);
 					segmentWriter.reset();
 					frameCount = 0;
-					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
+					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000.0);
 					header.setTimeStamp(System.currentTimeMillis());
 				}
 //				Utility.pause((long) (1000/_setup.getFPS()));
