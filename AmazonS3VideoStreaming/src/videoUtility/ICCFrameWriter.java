@@ -264,7 +264,7 @@ public class ICCFrameWriter {
 	 * @throws IOException
 	 */
 	public void exportToFile(int videoIndex) throws IOException{
-		this.exportTo(FileData.VIDEO_FOLDER.print()
+		this.exportTo(FileData.VIDEO_FOLDER
 				+ VideoSegment.toString(videoIndex));
 	}
 	

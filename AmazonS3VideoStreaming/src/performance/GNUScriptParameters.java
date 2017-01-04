@@ -1,4 +1,4 @@
-package GNUPlot;
+package performance;
 import java.util.LinkedList;
 
 public class GNUScriptParameters {
@@ -7,7 +7,7 @@ public class GNUScriptParameters {
 	private String _datafile;
 	private String _title = "";
 	private LinkedList<String> _dataElements;
-	private LinkedList<PlotObject> _plots;
+	private LinkedList<GNUPlotObject> _plots;
 	//With range
 	private int _startX, _startY, _startZ, _endX, _endY, _endZ;
 //	private boolean _hasRange = false;
@@ -63,7 +63,7 @@ public class GNUScriptParameters {
 		return _dataElements;
 	}
 
-	public LinkedList<PlotObject> getPlots(){
+	public LinkedList<GNUPlotObject> getPlots(){
 		return _plots;
 	}
 	
@@ -135,7 +135,7 @@ public class GNUScriptParameters {
 		_dataElements.addLast(ele);
 	}
 	
-	public void addPlot(PlotObject gnu){
+	public void addPlot(GNUPlotObject gnu){
 		_plots.addLast(gnu);
 	}
 	

@@ -103,10 +103,10 @@ public class VideoSegment {
 	//PUBLIC METHODS
 	//-------------------------------------------------------------------------
 	public String toString(){
-		return FileData.VIDEO_PREFIX.print() + _index + FileData.VIDEO_SUFFIX.print();
+		return FileData.VIDEO_PREFIX + _index + FileData.VIDEO_SUFFIX;
 	}
 	public static String toString(int index){
-		return FileData.VIDEO_PREFIX.print() + index + FileData.VIDEO_SUFFIX.print();
+		return FileData.VIDEO_PREFIX + index + FileData.VIDEO_SUFFIX;
 	}
 	
 	//-------------------------------------------------------------------------

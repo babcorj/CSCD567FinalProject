@@ -1,12 +1,12 @@
-package GNUPlot;
+package performance;
 
-public class PlotObject { //the plot in script writer
+public class GNUPlotObject { //the plot in script writer
 	private String _datafile;
 	private String _title;
 	private int[] _columns;
 	private String _line;
 
-	public PlotObject(String file, String title, int[] columns){
+	public GNUPlotObject(String file, String title, int[] columns){
 		_datafile = file;
 		_title = title;
 		_columns = columns;

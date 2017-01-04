@@ -1,4 +1,4 @@
-package GNUPlot;
+package performance;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
@@ -48,7 +48,7 @@ public class GNUScriptWriter {
 		String str = "";
 		
 		ListIterator<String> dataElement = _params.getDataElements().listIterator(0);
-		ListIterator<PlotObject> plots = _params.getPlots().listIterator(0);
+		ListIterator<GNUPlotObject> plots = _params.getPlots().listIterator(0);
 		
 		StringBuilder scriptBuilder = new StringBuilder();
 		
@@ -74,10 +74,10 @@ public class GNUScriptWriter {
 			scriptBuilder.append("set yr ["+yStart+":"+yEnd+"]\n");
 		}
 		
-		PlotObject gnu = null;
+		GNUPlotObject gnu = null;
 		int[] cols = null;
 
-		List<PlotObject> plotList = _params.getPlots();
+		List<GNUPlotObject> plotList = _params.getPlots();
 		if(plotList.get(0).hasLine()){
 			scriptBuilder.append("set style line 1 ");
 			scriptBuilder.append(plotList.get(0).getLine());
@@ -149,7 +149,7 @@ public class GNUScriptWriter {
 		String str = "";
 		
 		ListIterator<String> dataElement = _params.getDataElements().listIterator(0);
-		ListIterator<PlotObject> plots = _params.getPlots().listIterator(0);
+		ListIterator<GNUPlotObject> plots = _params.getPlots().listIterator(0);
 		
 		StringBuilder scriptBuilder = new StringBuilder();
 
@@ -177,7 +177,7 @@ public class GNUScriptWriter {
 			scriptBuilder.append("set zr ["+zStart+":"+zEnd+"]\n");
 		}
 		
-		PlotObject gnu = null;
+		GNUPlotObject gnu = null;
 		int[] cols = null;
 		scriptBuilder.append("splot \"");
 

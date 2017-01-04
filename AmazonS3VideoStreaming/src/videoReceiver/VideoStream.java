@@ -1,6 +1,5 @@
 package videoReceiver;
 
-import performance.PerformanceLogger;
 import videoUtility.SharedQueue;
 import videoUtility.VideoSegment;
 

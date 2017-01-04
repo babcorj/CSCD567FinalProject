@@ -107,7 +107,7 @@ public class S3Downloader extends S3UserStream {
 			//---------------------------------------------------------------------		
 			try{
 				parseSetupFile();
-				initLogger();
+				if(FileData.ISLOGGING) initLogger();
 
 			} catch(IOException e){
 				System.err.println("S3: Failed to retrieve setup file!");
@@ -133,7 +133,7 @@ public class S3Downloader extends S3UserStream {
 					videoSegment = new VideoSegment(_currentIndex+1, videoData, _headerSize);
 					_stream.add(videoSegment);
 //					System.out.println(videoSegment.toString() + "(TIME): " + videoSegment.getTimeStamp());
-					logDownload(videoSegment.getTimeStamp());
+					if(FileData.ISLOGGING) logDownload(videoSegment.getTimeStamp());
 	
 				} catch(SocketException se){
 	//				System.err.println(se.getMessage());
@@ -194,7 +194,7 @@ public class S3Downloader extends S3UserStream {
 		public String getServerBitRate(){
 			byte[] bitRate = null;
 			try {
-				bitRate = getFileData("ServerBitRate");
+				bitRate = getFileData(FileData.BITRATE_FILE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -227,7 +227,8 @@ public class S3Downloader extends S3UserStream {
 	 * Closes all closeable instances.
 	 */
 	private void closeEverything(){
-		if(!FileData.ISLOGGING.isTrue()) return;
+		if(!FileData.ISLOGGING) return;
+		
 		try{
 			_logger.close();
 		}catch(IOException e){
@@ -270,8 +271,8 @@ public class S3Downloader extends S3UserStream {
 	private String getCurrentVideo() throws IOException{
 		int tempIndex;
 		int[] indeces;
-		String prefix = FileData.VIDEO_PREFIX.print();
-		String suffix = FileData.VIDEO_SUFFIX.print();
+		String prefix = FileData.VIDEO_PREFIX;
+		String suffix = FileData.VIDEO_SUFFIX;
 		
 		ObjectListing listing = _s3.listObjects(_bucketName, prefix );
 		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
@@ -301,8 +302,8 @@ public class S3Downloader extends S3UserStream {
 	}
 
 //	private String getCurVidDEBUG(int[] startIndex, int maxIndex){
-//		String prefix = FileData.VIDEO_PREFIX.print();
-//		String suffix = FileData.VIDEO_SUFFIX.print();
+//		String prefix = FileData.VIDEO_PREFIX;
+//		String suffix = FileData.VIDEO_SUFFIX;
 //		
 //		int num = startIndex[0];
 //		
@@ -391,7 +392,7 @@ public class S3Downloader extends S3UserStream {
 	 * @throws IOException
 	 */
 	private byte[] getSetupFile() throws IOException {
-		S3Object object = _s3.getObject(new GetObjectRequest(_bucketName, FileData.SETUP_FILE.print()));
+		S3Object object = _s3.getObject(new GetObjectRequest(_bucketName, FileData.SETUP_FILE));
 
 		DataInputStream instream = new DataInputStream(object.getObjectContent());
 		byte[] buffer = new byte[instream.available()];
@@ -415,10 +416,9 @@ public class S3Downloader extends S3UserStream {
 	 * @see PerformanceLogger
 	 */
 	private void initLogger(){
-		if(!FileData.ISLOGGING.isTrue()) return;
 		
-		String  logFolder 	= FileData.LOG_DIRECTORY.print(),
-				s3log		= FileData.S3DOWNLOADER_LOG.print();
+		String  logFolder 	= FileData.LOG_DIRECTORY,
+				s3log		= FileData.S3DOWNLOADER_LOG;
 		
 		try{
 			_logger = new PerformanceLogger(s3log, logFolder);
@@ -435,16 +435,12 @@ public class S3Downloader extends S3UserStream {
 	 * @param timeStamp	The timestamp of when the video was sent.
 	 */
 	private void logDownload(long timeStamp){
-		if(!FileData.ISLOGGING.isTrue()) return;
+		
+		long currentTime = System.currentTimeMillis();
+		double lag = (currentTime - timeStamp)/1000.0;
 
-		double lag = ((double)(System.currentTimeMillis() + //VideoPlayer.TIME_OFFSET
-				- timeStamp)/1000);
-//		System.out.println("Download LAG: " + lag);
 		try {
-			_logger.logTime();
-			_logger.log(" ");
-			_logger.logVideoTransfer(lag);
-			_logger.log("\n");
+			_logger.logVideoTransfer(currentTime, lag);
 		} catch (IOException e) {
 			System.err.println("S3: Unable to log download!");
 		}
@@ -492,9 +488,11 @@ class S3DownloaderShutdownHook extends Thread {
 	}
 
 	public void run(){
+		if(!_downloader.isAlive()) return;
 		_downloader.end();
+		_downloader.interrupt();
+
 		try {
-			_downloader.interrupt();
 			_downloader.join();
 		} catch (InterruptedException e) {
 			System.err.println(e);

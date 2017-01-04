@@ -8,36 +8,20 @@ package videoUtility;
  * 
  */
 
-public enum FileData {
-	BUCKET				("icc-videostream-00"),
-	INDEXFILE 			("playlist.txt"),
-	ISLOGGING			(true),
-	LOG_DIRECTORY 		("log/"),
-	PLAYER_LOG			("VideoPlayerLog.txt"),
-	S3UPLOADER_LOG		("S3UploaderLog.txt"),
-	S3DOWNLOADER_LOG	("S3DownloaderLog.txt"),
-	SCRIPTFILE			("inScript.p"),
-	SENDER_LOG			("VideoSenderLog.txt"),
-	SETUP_FILE 			("setup.txt"),
-	VIDEO_FOLDER		("./videos/"),
-	VIDEO_PREFIX 		("myvideo"),
-	VIDEO_SUFFIX 		("");
-
-	private String _value;
-	private boolean _bool;
-
-	FileData(String str){
-		_value = str;
-	}
-	FileData(Boolean bool){
-		_bool = bool;
-	}
-	public String print() { return _value; }
-	public static String print(FileData data){
-		return data.print();
-	}
-	public boolean isTrue() { return _bool; }
-	public static boolean isTrue(FileData data){
-		return data.isTrue();
-	}
+public class FileData {
+	public static final String BITRATE_FILE = "ServerBitRate";
+	public static final String BUCKET = "icc-videostream-00";
+	public static final String GNU_PLAYER = "inScript.p";
+	public static final String GNU_RUNNER = "outScript.p";
+	public static final String INDEXFILE = "playlist.txt";
+	public static final boolean ISLOGGING = true;
+	public static final String LOG_DIRECTORY = "log/";
+	public static final String PLAYER_LOG = "VideoPlayerLog.txt";
+	public static final String S3UPLOADER_LOG = "S3UploaderLog.txt";
+	public static final String S3DOWNLOADER_LOG = "S3DownloaderLog.txt";
+	public static final String SENDER_LOG = "VideoSenderLog.txt";
+	public static final String SETUP_FILE = "setup.txt";
+	public static final String VIDEO_FOLDER = "./videos/";
+	public static final String VIDEO_PREFIX = "myvideo";
+	public static final String VIDEO_SUFFIX = "";
 }

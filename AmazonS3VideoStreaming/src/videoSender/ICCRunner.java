@@ -5,6 +5,10 @@ import videoUtility.DisplayFrame;
 import videoUtility.FileData;
 import videoUtility.VideoSegmentHeader;
 import videoUtility.ICCFrameWriter;
+import performance.GNUPlotObject;
+import performance.GNUScriptParameters;
+import performance.GNUScriptWriter;
+import performance.PerformanceLogger;
 import videoUtility.SharedQueue;
 import videoUtility.Utility;
 import videoUtility.VideoSegment;
@@ -15,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 import org.opencv.core.Core;
@@ -23,11 +28,6 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.imgproc.Imgproc;
-
-import GNUPlot.GNUScriptParameters;
-import GNUPlot.GNUScriptWriter;
-import GNUPlot.PlotObject;
-import performance.PerformanceLogger;
 
 /**
  * 
@@ -39,18 +39,16 @@ import performance.PerformanceLogger;
  * amount of images are saved, the byte array (now resembling a video) is
  * stored into an input stream and then uploaded to Amazon S3.
  * <p>
- * This version uses a playlist to save all necessary information about the
- * current videos being saved to Amazon S3. The benefit is that the 
- * VideoPlayer knows which video is most current, how many videos there are,
- * and where each frame of each video is located based on an index value. The
- * drawback is that the playlist has to be sent after each video is loaded,
- * which essentially doubles the cost of using Amazon S3.
+ * This version uses a video naming convention that lets the client know which 
+ * video is most current. This improves on the last version by removing the
+ * need for a playlist, which would have doubled the cost of using Amazon S3
+ * (since the number of uploads would double with each playlist update).
  *
  * Used in Run configuration settings:
  * 	Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
  * 	System.out.println(System.getProperty("java.library.path"));
 
- * @version v.0.0.20
+ * @version v.3.1
  * @see VideoSource
  */
 public class ICCRunner extends VideoSource {
@@ -62,43 +60,45 @@ public class ICCRunner extends VideoSource {
 	 * 							can be saved to Amazon S3 (anything older is
 	 * 							deleted from the bucket).
 	 */
-	private final static int MAX_VIDEO_INDEX = 10;
-	private final static int MAX_SEGMENTS = 5;
+	private final static int MAX_VIDEO_INDEX = 500;
+	private final static int MAX_SEGMENTS = 20;
+	private final static boolean PREVIEW = true;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
 	 */
 	private static ICCSetup _setup = new ICCSetup()
-			.setCompressionRatio(0.4)
+			.setCompressionRatio(1)
 			.setDevice(0)
 			.setFourCC("MJPG")
 			.setFPS(6)
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
-			.setSegmentLength(5);//in seconds
+			.setSegmentLength(2);//in seconds
 
 	//-------------------------------------------------------------------------
 	//Private static variables
 	//-------------------------------------------------------------------------
-	private static long _startTime;
-	private static DisplayFrame _display;
-	private static ICCCleaner _cleaner;
-	private static S3Uploader _s3;
-	private static SharedQueue<VideoSegment> _videoStream;
-	private static SharedQueue<String> _signalQueue;
-	private static PerformanceLogger _logger;
+	private static ICCCleaner 					_cleaner;
+	private static DisplayFrame 				_display;
+	private static PerformanceLogger 			_logger;
+	private static S3Uploader 					_s3;
+	private static SharedQueue<String> 			_signalQueue;
+	private static long 						_startTime;
+	private static SharedQueue<VideoSegment> 	_videoStream;
 
 	//-------------------------------------------------------------------------
 	//Private variables
 	//-------------------------------------------------------------------------
-	private Mat _mat;
-	private Point _timeStampLocation;
+	private Mat 	_mat;
+	private Point 	_timeStampLocation;
 
 	//-------------------------------------------------------------------------
 	//DVC
 	//-------------------------------------------------------------------------
 	public ICCRunner(){	
 		super();
+		_startTime = System.currentTimeMillis();
 		_className = "ICC Runner";
 		_mat = new Mat();
 		_signalQueue = new SharedQueue<>(10);
@@ -112,25 +112,15 @@ public class ICCRunner extends VideoSource {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 
 		ICCRunner iccr = new ICCRunner();
-
-		initDisplay();
-		initUploader();
-		initCleaner();
-
-		_startTime = System.currentTimeMillis();
-
-		synchronized(_signalQueue){
-			_signalQueue.enqueue(Long.toString(_startTime));
-			try{
-				_signalQueue.wait();
-			}catch (InterruptedException e){
-				//empty
-			}
-		}
+		String loggerFilename = "RunnerLog_COMP-" + _setup.getCompressionRatio()
+		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
+		String s3loggerFilename = "S3Log_COMP-" + _setup.getCompressionRatio()
+		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
 		
-		if(FileData.ISLOGGING.isTrue()){
-			initLogging();			
-		}
+		if(PREVIEW)				initDisplay();
+		if(FileData.ISLOGGING) 	initLogging(loggerFilename, s3loggerFilename);
+		initUploader(s3loggerFilename);
+		initCleaner();
 		//prints message when S3 has been initialized
 		System.out.println(_signalQueue.dequeue());
 
@@ -159,7 +149,7 @@ public class ICCRunner extends VideoSource {
 		VideoCapture grabber = null;
 		VideoSegment segment = new VideoSegment();
 		VideoSegmentHeader header = new VideoSegmentHeader();
-		
+
 		segmentWriter.setFrames(segmentLength);
 
 		try{
@@ -171,22 +161,26 @@ public class ICCRunner extends VideoSource {
 			System.exit(-1);
 		}
 
-		timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
-
+		header.setTimeStamp(System.currentTimeMillis());
+		timeStarted = (header.getTimeStamp() - _startTime)/1000.0;
+		
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
+			
 			try {
 				//capture and record video
 				if (!grabber.read(_mat)) {
 					Utility.pause(15);
 					continue;
 				}
-				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
-				Imgproc.putText(_mat, getTime(),
-						_timeStampLocation,
-						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
-
-				_display.setCurrentFrame(this.getCurrentFrame());
+				if(PREVIEW){
+					Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
+					Imgproc.putText(_mat, getTime(),
+							_timeStampLocation,
+							Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
+	
+					_display.setCurrentFrame(this.getCurrentFrame());
+				}
 				segmentWriter.write();
 				frameCount++;
 
@@ -197,10 +191,10 @@ public class ICCRunner extends VideoSource {
 					segment.setIndex(currentSegment);
 					segment.setData(output.toByteArray());
 					segment.setHeader(header);
-					
+
 					sendSegmentToS3(segment);
 					
-					if(FileData.ISLOGGING.isTrue()){
+					if(FileData.ISLOGGING){
 						logSegment(timeStarted);
 					}
 
@@ -216,7 +210,9 @@ public class ICCRunner extends VideoSource {
 					currentSegment = incrementVideoSegment(currentSegment);
 					segmentWriter.reset();
 					frameCount = 0;
-					timeStarted = (double)((System.currentTimeMillis() - _startTime)/1000);
+					
+					header.setTimeStamp(System.currentTimeMillis());
+					timeStarted = (header.getTimeStamp() - _startTime)/1000.0;
 				}
 				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
@@ -268,35 +264,39 @@ public class ICCRunner extends VideoSource {
 	 * Initializes the loggers.
 	 * @see PerformanceLogger
 	 */
-	private static void initLogging(){
-		String loggerFilename = "RunnerLog_COMP-" + _setup.getCompressionRatio()
-		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
-		String s3loggerFilename = "S3Log_COMP-" + _setup.getCompressionRatio()
-		+ "_FPS-" + _setup.getFPS() + "SEC-" + _setup.getSegmentLength() + ".txt";
-		
-		writeGNUPlotScript("script.p", loggerFilename, s3loggerFilename);
-		
-		PerformanceLogger s3logger = null;
+	private static void initLogging(String loggerFilename, String s3loggerFilename){
+		writeGNUPlotScript(FileData.GNU_RUNNER, loggerFilename, s3loggerFilename);
 		
 		try{
-			s3logger = new PerformanceLogger(s3loggerFilename, FileData.LOG_DIRECTORY.print());
-			_logger = new PerformanceLogger(loggerFilename, FileData.LOG_DIRECTORY.print());
+			_logger = new PerformanceLogger(loggerFilename, FileData.LOG_DIRECTORY);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		_logger.setStartTime(_startTime);
-		s3logger.setStartTime(_startTime);
-		_s3.setLogger(s3logger);
 	}
 	
 	/**
 	 * Initializes the Amazon S3.
 	 * @see S3Uploader
 	 */
-	private static void initUploader(){
+	private static void initUploader(String s3loggerFilename){
 		_s3 = new S3Uploader(_videoStream);
 		_s3.setSignal(_signalQueue);
+		
 		_s3.start();
+		
+		if(!FileData.ISLOGGING) return;
+		
+		PerformanceLogger s3logger = null;
+		
+		try{
+			s3logger = new PerformanceLogger(s3loggerFilename, FileData.LOG_DIRECTORY);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		_logger.setStartTime(_startTime);
+		s3logger.setStartTime(_startTime);
+		_s3.setLogger(s3logger);
 	}
 	
 	/**
@@ -311,7 +311,7 @@ public class ICCRunner extends VideoSource {
 //		int headerSize = (frames * Integer.BYTES) + Long.BYTES;
 		int headerSize = (frames * 4) + 8;
 		FileWriter fw = null;
-		String filename = FileData.SETUP_FILE.print();
+		String filename = FileData.SETUP_FILE;
 		try{
 			StringBuilder sb = new StringBuilder();
 			fw = new FileWriter(filename);
@@ -343,12 +343,12 @@ public class ICCRunner extends VideoSource {
 	 * @param scriptfile 	The script runnable by gnuplot.
 	 * @param runnerfile	The data gathered from the ICCRunner.
 	 * @param s3file		The data gathered from the S3Uploader.
-	 * @see GNUScriptWriter, PlotObject, GNUScriptParameters
+	 * @see GNUScriptWriter, GNUPlotObject, GNUScriptParameters
 	 */
 	private static void writeGNUPlotScript(String scriptfile, String runnerfile, String s3file){
 		int col1[] = {1, 2};
-		PlotObject runnerPlot = new PlotObject(new File(FileData.LOG_DIRECTORY.print() + runnerfile).getAbsolutePath(), "Video recorded", col1);
-		PlotObject s3Plot = new PlotObject(new File(FileData.LOG_DIRECTORY.print() + s3file).getAbsolutePath(), "Stream to S3", col1);
+		GNUPlotObject runnerPlot = new GNUPlotObject(new File(FileData.LOG_DIRECTORY + runnerfile).getAbsolutePath(), "Video recorded", col1);
+		GNUPlotObject s3Plot = new GNUPlotObject(new File(FileData.LOG_DIRECTORY + s3file).getAbsolutePath(), "Stream to S3", col1);
 		GNUScriptParameters params = new GNUScriptParameters("ICC");
 		params.addElement("CompressionRatio(" + _setup.getCompressionRatio() + ")");
 		params.addElement("FPS(" + _setup.getFPS() + ")");
@@ -383,10 +383,11 @@ public class ICCRunner extends VideoSource {
 			grabber.release();
 			segmentWriter.close();
 			
-			if(!FileData.ISLOGGING.isTrue()) return;
+			if(!FileData.ISLOGGING) return;
+			//upload log files to S3
+			_logger.close();
 			_signalQueue.enqueue(_logger.getFileName());
 			_signalQueue.enqueue(_logger.getFilePath());
-			_logger.close();
 		
 		} catch(Exception e){
 			System.err.println(e);
@@ -436,8 +437,10 @@ public class ICCRunner extends VideoSource {
 	 * @return The time passed since program began.
 	 */
 	private String getTime(){
-		DecimalFormat formatter = new DecimalFormat("#.00");
-		return formatter.format((System.currentTimeMillis() - _startTime)/1000);
+		
+		DecimalFormat formatter = new DecimalFormat("#.##");
+		formatter.setRoundingMode(RoundingMode.CEILING);
+		return formatter.format((double)(System.currentTimeMillis() - _startTime)/1000);
 	}
 
 	/**
@@ -456,17 +459,17 @@ public class ICCRunner extends VideoSource {
 	 * @see getTime
 	 */
 	private void logSegment(double timeStarted){
-		if(!FileData.ISLOGGING.isTrue()) return;
 		
-		double curRunTime = (double)((System.currentTimeMillis() - _startTime)/1000);
-		double value = curRunTime - timeStarted;
-		_logger.logTime();
+		long currentTime = System.currentTimeMillis();
+		double curRunTime = (currentTime - _startTime)/1000.0;
+		double delay = curRunTime - timeStarted;
+		
 		try {
-			_logger.log(" ");
-			_logger.logVideoTransfer(value);
-			_logger.log("\n");
+			_logger.logVideoTransfer(currentTime, delay);
+			
 		} catch (IOException e) {
 			System.err.println("ICCR: Failed to log video segment");
+			e.printStackTrace();
 		}
 	}
 
@@ -493,7 +496,9 @@ class ICCRunnerShutdownHook extends Thread {
 	}
 
 	public void run(){
+		if(!_iccr.isAlive()) return;
 		_iccr.end();
+		_iccr.interrupt();
 		try {
 			_iccr.join();
 		} catch (InterruptedException e) {

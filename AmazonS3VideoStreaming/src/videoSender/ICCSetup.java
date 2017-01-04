@@ -47,7 +47,7 @@ public class ICCSetup {
 		return _fourCC;
 	}
 	public String getFileName(int segmentNumber){
-		return FileData.VIDEO_PREFIX.print() + segmentNumber + FileData.VIDEO_SUFFIX.print();
+		return FileData.VIDEO_PREFIX + segmentNumber + FileData.VIDEO_SUFFIX;
 	}
 	public double getFPS(){
 		return _fps;

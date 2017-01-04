@@ -2,13 +2,11 @@ package videoUtility;
 
 import java.awt.Graphics;
 import java.awt.Image;
-import java.awt.image.BufferedImage;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
-//import org.opencv.videoio.*;
 
 @SuppressWarnings("serial")
 public class DisplayFrame extends JFrame {
