@@ -3,10 +3,14 @@ package performance;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
+import com.fasterxml.jackson.core.json.ByteSourceJsonBootstrapper;
+
 public class MetricsLogger {
 	
 	private int 	_bufferEvents = 0;
 	private double  _connectTime = 0.0;
+	private int		_framePlays = 0;
+	private double	_pps = 0.0; //pixels per second
 	private int 	_segmentDrops = 0;
 	private int 	_segmentPlays = 0;
 	private double 	_serverBitRate = 0.0;
@@ -27,6 +31,7 @@ public class MetricsLogger {
 	public void reset(){
 		_bufferEvents = 0;
 		_connectTime = 0.0;
+		_framePlays = 0;
 		_segmentDrops = 0;
 		_segmentPlays = 0;
 		_startTime = 0;
@@ -43,6 +48,7 @@ public class MetricsLogger {
 
 		sb.append("Bit Rate: " + (df.format(((getBitRate()*8)/1000.0)) + " Kbps\n"));
 		sb.append("Server Bit Rate: " + (df.format(_serverBitRate/1000.0) + " Kbps\n"));
+		sb.append("Bits Per Pixel: " + (df.format(getBitsPerPixel()) + "\n"));
 		sb.append("Play Time: " + df.format(getTimePlayed()) + "\n");
 		sb.append("Buffer Time: " + df.format(getTimeBuffered()) + "\n");
 		sb.append("Connect Time: " + df.format(getConnectTime()) + "\n");
@@ -63,6 +69,7 @@ public class MetricsLogger {
 		
 		sb.append(df.format(((getBitRate()*8)/1000)) + ", ");
 		sb.append(df.format(_serverBitRate/1000) + ", ");
+		sb.append(df.format(getBitsPerPixel()) + ", ");
 		sb.append(df.format(getTimePlayed()) + ", ");
 		sb.append(df.format(getTimeBuffered()) + ", ");
 		sb.append(df.format(getConnectTime()) + ", ");
@@ -80,7 +87,7 @@ public class MetricsLogger {
 	public String toCSVwHeader(){
 		StringBuilder sb = new StringBuilder();
 		
-		sb.append("BitRate, ServerBitRate, PlayTime, BufferTime, ConnectTime, LagTime, LagRatio, AvgDelay, SegPlayed, SegDropped, BufferEvents, CSR\n");
+		sb.append("BitRate, ServerBitRate, BitsPerPixel, PlayTime, BufferTime, ConnectTime, LagTime, LagRatio, AvgDelay, SegPlayed, SegDropped, BufferEvents, CSR\n");
 		sb.append(toCSV());
 		
 		return sb.toString();
@@ -90,7 +97,11 @@ public class MetricsLogger {
 //GETS
 //-------------------------------------------------------------------------------------------------
 	
-	public double getBitRate(){ return ((double)_totalBytes/_timePlayed); }
+	public double getBitsPerPixel(){
+		return getBitRate()/_pps;
+	}
+	
+	public double getBitRate(){ return ((double)_totalBytes/(_timePlayed+_timeBuffered+_connectTime)); }
 	
 	public double getBitRateServer(){ return _serverBitRate; }
 	
@@ -101,7 +112,7 @@ public class MetricsLogger {
 	public double getConnectTime(){ return _connectTime; }
 
 	//Connection Success Rate
-	public double getCSR(){ return ((double)(_segmentPlays - _bufferEvents))/_segmentPlays; }
+	public double getCSR(){ return ((double)(_framePlays - _bufferEvents))/_framePlays; }
 
 	public double getDelayAverage(){
 		
@@ -122,8 +133,10 @@ public class MetricsLogger {
 	
 	public int getDrops(){ return _segmentDrops; }
 	
+	public int getFramePlays(){ return _framePlays; }
+	
 	public double getLagRatio(){
-		return _timePlayed/(_timePlayed + _timeBuffered + _connectTime); }
+		return (_timeBuffered + _connectTime)/_timePlayed; }
 	
 	public int getPlays(){ return _segmentPlays; }
 	
@@ -150,6 +163,8 @@ public class MetricsLogger {
 	
 	public void logDelay(double delay){ _delay.add(Math.abs(delay)); }
 
+	public void logFrame(){ _framePlays++; }
+	
 	public void logPlay(double time){ _timePlayed += time; }
 	
 	public void logSegmentDrop(){ _segmentDrops++; }
@@ -161,6 +176,11 @@ public class MetricsLogger {
 //-------------------------------------------------------------------------------------------------
 //SETS
 //-------------------------------------------------------------------------------------------------
+
+	public void setSegmentPixelSize(int width, int height, double fps){
+		_pps = width * height * fps;
+		
+	}
 	
 	public void setStartTime(long time){ _startTime = time; }
 	

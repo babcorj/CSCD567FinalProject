@@ -16,6 +16,7 @@ public class FileData {
 	public static final String INDEXFILE = "playlist.txt";
 	public static final boolean ISLOGGING = true;
 	public static final String LOG_DIRECTORY = "log/";
+	public static final String METRICS_FILE = "videoStreamMetrics.csv";
 	public static final String PLAYER_LOG = "VideoPlayerLog.txt";
 	public static final String S3UPLOADER_LOG = "S3UploaderLog.txt";
 	public static final String S3DOWNLOADER_LOG = "S3DownloaderLog.txt";
