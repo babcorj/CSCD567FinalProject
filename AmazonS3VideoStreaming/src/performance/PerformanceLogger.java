@@ -70,9 +70,9 @@ public class PerformanceLogger {
 
 	public void logVideoTransfer(long currentTime, double number) throws IOException{
 		DecimalFormat formatter = new DecimalFormat("#.###");
-		String vTransferLog = currentTime + " " + number + "\n";
+		String vTransferLog = currentTime + " " + formatter.format(number) + "\n";
 		
-		_fw.write(formatter.format(vTransferLog));
+		_fw.write(vTransferLog);
 	}
 
 	

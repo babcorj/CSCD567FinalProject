@@ -122,6 +122,8 @@ public class ICCSetup {
 	private void initVideoCapture() throws Exception {
 		_videoCap = new VideoCapture(_device);
 		_videoCap.set(Videoio.CAP_PROP_FPS, _fps);
+//		System.out.println("Prop: " + Videoio.CAP_PROP_FPS
+//				+ "\nVideoGetFPS: " + _videoCap.get(Videoio.CAP_PROP_FPS));
 
 		double width = _width * _compressionRatio;
 		double height = _height * _compressionRatio;

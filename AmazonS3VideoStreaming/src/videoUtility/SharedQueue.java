@@ -35,9 +35,10 @@ public class SharedQueue<E> implements Iterable<E> {
 			try {
 				wait();
 			} catch (InterruptedException e) {
+				throw new NoSuchElementException("Thread Interrupted!");
 			}
 		}
-		myList.add(job);
+		myList.addFirst(job);
 		notify();
 	}
 
@@ -49,7 +50,7 @@ public class SharedQueue<E> implements Iterable<E> {
 				throw new NoSuchElementException("Thread Interrupted!");
 			}
 		}
-		E job = myList.remove();
+		E job = myList.removeLast();
 		notify();
 		return job;
 	}

@@ -27,6 +27,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
+import org.opencv.videoio.Videoio;
 import org.opencv.imgproc.Imgproc;
 
 /**
@@ -60,21 +61,24 @@ public class ICCRunner extends VideoSource {
 	 * 							can be saved to Amazon S3 (anything older is
 	 * 							deleted from the bucket).
 	 */
-	private final static int MAX_VIDEO_INDEX = 500;
-	private final static int MAX_SEGMENTS = 20;
-	private final static boolean PREVIEW = true;
+	private final static short MAX_VIDEO_INDEX = 500;
+	private final static short MAX_SEGMENTS = 20;
+	private final static float PERF_TOLERRANCE = 0.1f;
+	private final static boolean PREVIEW = false;
+	private final short TOTAL_SEGS_TO_PLAY = 60;
+	private short _totalPlayed = 0;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
 	 */
 	private static ICCSetup _setup = new ICCSetup()
-			.setCompressionRatio(1)
+			.setCompressionRatio(0.75)
 			.setDevice(0)
 			.setFourCC("MJPG")
 			.setFPS(6)
 			.setMaxIndex(MAX_VIDEO_INDEX)
 			.setMaxSegmentsSaved(MAX_SEGMENTS)
-			.setSegmentLength(2);//in seconds
+			.setSegmentLength(4);//in seconds
 
 	//-------------------------------------------------------------------------
 	//Private static variables
@@ -82,7 +86,7 @@ public class ICCRunner extends VideoSource {
 	private static ICCCleaner 					_cleaner;
 	private static DisplayFrame 				_display;
 	private static PerformanceLogger 			_logger;
-	private static S3Uploader 					_s3;
+	private static S3Uploader 					_uploader;
 	private static SharedQueue<String> 			_signalQueue;
 	private static long 						_startTime;
 	private static SharedQueue<VideoSegment> 	_videoStream;
@@ -140,8 +144,8 @@ public class ICCRunner extends VideoSource {
 	public void run() {
 		Runtime.getRuntime().addShutdownHook(new ICCRunnerShutdownHook(this));
 
-		int frameCount = 0, oldestSegment = 0, currentSegment = 0;
-		int segmentLength = (int)(_setup.getFPS() * _setup.getSegmentLength());
+		short frameCount = 0, oldestSegment = 0, currentSegment = 0;
+		short segmentLength = (short)(_setup.getFPS() * _setup.getSegmentLength());
 		boolean preloaded = false;
 		double timeStarted;
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -162,7 +166,7 @@ public class ICCRunner extends VideoSource {
 		}
 
 		header.setTimeStamp(System.currentTimeMillis());
-		timeStarted = (header.getTimeStamp() - _startTime)/1000.0;
+		timeStarted = header.getTimeStamp();
 		
 		//isDone becomes false when "end()" function is called
 		while (!_isDone) {
@@ -170,15 +174,15 @@ public class ICCRunner extends VideoSource {
 			try {
 				//capture and record video
 				if (!grabber.read(_mat)) {
-					Utility.pause(15);
+//					Utility.pause(15);
 					continue;
 				}
+				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
+				Imgproc.putText(_mat, getTime(),
+						_timeStampLocation,
+						Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
+				
 				if(PREVIEW){
-					Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
-					Imgproc.putText(_mat, getTime(),
-							_timeStampLocation,
-							Core.FONT_HERSHEY_PLAIN, 1, new Scalar(0));
-	
 					_display.setCurrentFrame(this.getCurrentFrame());
 				}
 				segmentWriter.write();
@@ -199,10 +203,10 @@ public class ICCRunner extends VideoSource {
 					}
 
 					if(preloaded){
-						oldestSegment = ++oldestSegment % MAX_VIDEO_INDEX;
+						oldestSegment = (short)(++oldestSegment % MAX_VIDEO_INDEX);
 						deleteOldSegments(currentSegment);
 					}
-					else if(currentSegment == MAX_SEGMENTS){
+					else if(currentSegment == MAX_SEGMENTS-1){
 						preloaded = true;
 					}
 
@@ -211,15 +215,26 @@ public class ICCRunner extends VideoSource {
 					segmentWriter.reset();
 					frameCount = 0;
 					
+//					System.out.println("CurrSeg: " + currentSegment);
+//					System.out.println("Record time: " 
+//					+ ((System.currentTimeMillis() - timeStarted)/1000.0));
+					
+					segment = new VideoSegment();
+					header = new VideoSegmentHeader();
+					
 					header.setTimeStamp(System.currentTimeMillis());
-					timeStarted = (header.getTimeStamp() - _startTime)/1000.0;
+
+					if((header.getTimeStamp() - timeStarted)/1000.0
+							> (_setup.getSegmentLength() + PERF_TOLERRANCE)){
+						System.err.println("VISUAL QUALITY IS AFFECTING PERFORMANCE!");
+						System.err.println("Please lower compression, FPS, color, etc.");
+					}
+					timeStarted = header.getTimeStamp();
+
+					if(++_totalPlayed == TOTAL_SEGS_TO_PLAY) end();
 				}
-				Utility.pause((long) (1000/_setup.getFPS()));
 			}//end try
 			catch (Exception e) {
-				if(e.getMessage().equals("closed")){
-					break;
-				}
 				e.printStackTrace();
 			}
 		}//end while
@@ -230,20 +245,13 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	//Public methods
 	//-------------------------------------------------------------------------
-	/**
-	 * Used to end current ICCRunner thread.
-	 */
-	public void end(){
-		if(_isDone) return;
-		_isDone = true;
-		System.out.println("Attempting to close runner...");
-	}
+
 
 	//-------------------------------------------------------------------------
 	//Private static methods
 	//-------------------------------------------------------------------------	
 	private static void initCleaner(){
-		_cleaner = new ICCCleaner(_s3);
+		_cleaner = new ICCCleaner(_uploader);
 		_cleaner.start();
 	}
 
@@ -280,10 +288,10 @@ public class ICCRunner extends VideoSource {
 	 * @see S3Uploader
 	 */
 	private static void initUploader(String s3loggerFilename){
-		_s3 = new S3Uploader(_videoStream);
-		_s3.setSignal(_signalQueue);
+		_uploader = new S3Uploader(_videoStream);
+		_uploader.setSignal(_signalQueue);
 		
-		_s3.start();
+		_uploader.start();
 		
 		if(!FileData.ISLOGGING) return;
 		
@@ -296,7 +304,7 @@ public class ICCRunner extends VideoSource {
 		}
 		_logger.setStartTime(_startTime);
 		s3logger.setStartTime(_startTime);
-		_s3.setLogger(s3logger);
+		_uploader.setLogger(s3logger);
 	}
 	
 	/**
@@ -383,11 +391,12 @@ public class ICCRunner extends VideoSource {
 			grabber.release();
 			segmentWriter.close();
 			
-			if(!FileData.ISLOGGING) return;
-			//upload log files to S3
-			_logger.close();
-			_signalQueue.enqueue(_logger.getFileName());
-			_signalQueue.enqueue(_logger.getFilePath());
+			if(FileData.ISLOGGING){	//upload log files to S3
+				_logger.close();
+				_signalQueue.enqueue(_logger.getFileName());
+				_signalQueue.enqueue(_logger.getFilePath());
+			}
+			_uploader.end();
 		
 		} catch(Exception e){
 			System.err.println(e);
@@ -449,8 +458,8 @@ public class ICCRunner extends VideoSource {
 	 * @param videoSegment 		The most current video segment recorded.
 	 * @return The next video segment index.
 	 */
-	private int incrementVideoSegment(int videoSegment){
-		return ++videoSegment % MAX_VIDEO_INDEX;
+	private short incrementVideoSegment(short videoSegment){
+		return (short)(++videoSegment % MAX_VIDEO_INDEX);
 	}
 
 	/**
@@ -478,6 +487,7 @@ public class ICCRunner extends VideoSource {
 	 * @param video		The video that will be uploaded to Amazon S3.
 	 */
 	private void sendSegmentToS3(VideoSegment video){
+		System.out.println("ICCR: Recorded " + video.toString());
 		_videoStream.enqueue(video);
 	}
 }
@@ -496,9 +506,7 @@ class ICCRunnerShutdownHook extends Thread {
 	}
 
 	public void run(){
-		if(!_iccr.isAlive()) return;
 		_iccr.end();
-		_iccr.interrupt();
 		try {
 			_iccr.join();
 		} catch (InterruptedException e) {

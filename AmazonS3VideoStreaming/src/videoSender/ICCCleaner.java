@@ -20,7 +20,9 @@ public class ICCCleaner extends Thread {
 	}
 	
 	public void end(){
+		System.out.println("Attempting to close Cleaner...");
 		_isDone = true;
+		this.interrupt();
 	}
 	
 	public void run(){
@@ -32,13 +34,15 @@ public class ICCCleaner extends Thread {
 						wait();
 					}
 					continue;
-				} catch(InterruptedException e){}
+				} catch(InterruptedException e){ continue; }
 			}
 			delKey = _listDel.removeFirst();
 			s3.delete(delKey);
+			
 			while(!s3.isDeleted(delKey)){
 				Utility.pause(50);
-			}
+			}		
 		}
+		System.out.println("Cleaner successfully closed!");
 	}
 }

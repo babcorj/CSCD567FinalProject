@@ -46,14 +46,14 @@ public class S3Uploader extends S3UserStream {
 	private AmazonS3 					_s3;
 	private SharedQueue<String> 		_signalQueue;
 	private long 						_startTime;
-	private SharedQueue<VideoSegment> 	_stream;
+	private SharedQueue<VideoSegment> 	_videoStream;
 	private TransferManager 			_transferMGMT;
 	
 	//-------------------------------------------------------------------------
 	//Constructor
 	//-------------------------------------------------------------------------	
 	public S3Uploader(SharedQueue<VideoSegment> theque){
-		_stream = theque;
+		_videoStream = theque;
 		_bitRateList = new LinkedList<>();
 	}
 
@@ -63,8 +63,8 @@ public class S3Uploader extends S3UserStream {
 	public void run() {
 		//bit rate parameters
 		long bytesSent = 0;
-		int segmentsPlayed = 0;
-		int segmentsToPlay = 2;
+		short segmentsPlayed = 0;
+		short segmentsToPlay = 5;
 		long timeStart;
 		
 		/*
@@ -110,21 +110,24 @@ public class S3Uploader extends S3UserStream {
 		uploadFile(setupfile);
 		System.out.println("S3: Setup file successfully sent to S3");
 		timeStart = System.currentTimeMillis();
+		deleteAllSegments();
 		
 		//Continue to send video segments until end is called
 		while(!_isDone){
-			if(segmentsPlayed >= segmentsToPlay && FileData.ISLOGGING){
-				recordBitRate(bytesSent,timeStart,10);
-				timeStart = System.currentTimeMillis();//bitrate
-				bytesSent = 0;
-				segmentsPlayed = 0;
-//				System.out.println("BitRate recorded");
+			if(FileData.ISLOGGING){
+				if(segmentsPlayed >= segmentsToPlay){
+					recordBitRate(bytesSent,timeStart,10);
+					timeStart = System.currentTimeMillis();//bitrate
+					bytesSent = 0;
+					segmentsPlayed = 0;
+//				System.out.println("BitRate recorded");					
+				}
 			}
 			ObjectMetadata info = new ObjectMetadata();
 			VideoSegment segment;
 			
 			try { //start uploading video stream
-				segment = _stream.dequeue();
+				segment = _videoStream.dequeue();
 				_key = segment.toString();
 				
 				System.out.println("S3: Uploading file '" + _key + "'...");
@@ -136,7 +139,7 @@ public class S3Uploader extends S3UserStream {
 				_key = null;
 				
 				if(FileData.ISLOGGING){
-					bytesSent += segment.size();//bitrate
+					bytesSent += segment.size();//total bytes sent
 					logUpload((System.currentTimeMillis() - _startTime)/1000.0);
 					segmentsPlayed++;
 				}
@@ -156,7 +159,7 @@ public class S3Uploader extends S3UserStream {
 				System.out.println("Error Message: " + ace.getMessage());
 				System.out.println("Current file to upload: " + _key);
 			} catch (NoSuchElementException ie){
-				//happens during dequeue when program exits
+				System.err.println("No such element in video stream");
 			} catch (Exception e){
 				e.printStackTrace();
 				System.err.println(e);
@@ -175,7 +178,7 @@ public class S3Uploader extends S3UserStream {
 		_startTime = logger.getStartTime();
 	}
 	public void setSignal(SharedQueue<String> signal){
-		_signalQueue = signal;			
+		_signalQueue = signal;
 	}
 	
 	//-------------------------------------------------------------------------
@@ -195,7 +198,7 @@ public class S3Uploader extends S3UserStream {
 				System.err.println("Deletion failed: " + file);
 				Utility.pause(50);
 				continue;
-			}
+			}			
 		}
 		System.out.println("S3: Successfully deleted '"+file+"' from '" + _bucketName + "'");
 	}
@@ -206,10 +209,11 @@ public class S3Uploader extends S3UserStream {
 	public void end(){
 		if(_isDone) return;
 		System.out.println("Attempting to close S3 Uploader...");
-		while(!_stream.isEmpty()){
-			_stream.dequeue();
+		while(!_videoStream.isEmpty()){
+			_videoStream.dequeue();
 		}
 		_isDone = true;
+		this.interrupt();
 	}
 
 	public boolean isDeleted(String file){
@@ -231,6 +235,7 @@ public class S3Uploader extends S3UserStream {
 		try{
 			_logger.close();
 			uploadLogFiles();
+			_transferMGMT.shutdownNow(true);//true shutsdown s3 client too
 		
 		} catch(IOException e){
 			System.err.println("Error writing logs");
@@ -289,7 +294,7 @@ public class S3Uploader extends S3UserStream {
 		average = totalBitRate/_bitRateList.size();
 
 		bitRateStream = Double.toString(average).getBytes();
-		System.out.println("Bit rate: " + bitRate);
+//		System.out.println("Bit rate: " + bitRate);
 		ObjectMetadata info = new ObjectMetadata();
 		ByteArrayInputStream input = new ByteArrayInputStream(bitRateStream);
 
@@ -368,13 +373,6 @@ class S3UploaderShutdownHook extends Thread {
 	}
 
 	public void run(){
-		if(!_uploader.isAlive()) return;
 		_uploader.end();
-		_uploader.interrupt();
-		try {
-			_uploader.join();
-		} catch (InterruptedException e) {
-			System.err.println("S3Uploader end interrupted!");
-		}
 	}
 }
