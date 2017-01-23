@@ -12,5 +12,6 @@ public class VideoSource extends Thread {
 	public void end(){
 		System.out.println("Attempting to close " + _className + "...");
 		_isDone = true;
+		this.interrupt();
 	}
 }

@@ -21,6 +21,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.http.timers.client.ClientExecutionTimeoutException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -104,13 +105,16 @@ public class S3Downloader extends S3UserStream {
 			System.out.println("===========================================\n");
 
 			//Retrieve the setup file
-			//---------------------------------------------------------------------		
-			try{
-				parseSetupFile();
-				if(FileData.ISLOGGING) initLogger();
-
-			} catch(IOException e){
-				System.err.println("S3: Failed to retrieve setup file!");
+			//---------------------------------------------------------------------
+			while(true){
+				try{
+					parseSetupFile();
+					if(FileData.ISLOGGING) initLogger();
+					break;
+	
+				} catch(IOException | ClientExecutionTimeoutException e){
+					System.err.println("S3: Failed to retrieve setup file!");
+				}
 			}
 
 			//Gather and send video segments
@@ -123,7 +127,7 @@ public class S3Downloader extends S3UserStream {
 			while (!_isDone) {
 				try{
 					if((_key = getCurrentVideo()) == null){
-						Utility.pause(15);
+//						Utility.pause(15);
 						continue;
 					}
 //					_key = getCurVidDEBUG(vIndexDebug, 10);
@@ -153,6 +157,7 @@ public class S3Downloader extends S3UserStream {
 					Utility.pause(100);
 					continue;
 				} catch (AmazonServiceException ase) {
+					ase.printStackTrace();
 					System.out.println("Caught an AmazonServiceException, which means your request made it "
 							+ "to Amazon S3, but was rejected with an error response for some reason.");
 					System.out.println("Error Message:    " + ase.getMessage());
@@ -163,6 +168,7 @@ public class S3Downloader extends S3UserStream {
 					System.out.println("Key:	           '" + _key + "'");
 					continue;
 				} catch (AmazonClientException ace) {
+					ace.printStackTrace();
 					System.out.println("Caught an AmazonClientException, which means the client encountered "
 							+ "a serious internal problem while trying to communicate with S3, "
 							+ "such as not being able to access the network.");
@@ -189,6 +195,7 @@ public class S3Downloader extends S3UserStream {
 			if(_isDone) return;
 			System.out.println("Attempting to close S3 Downloader...");
 			_isDone = true;
+			this.interrupt();
 		}
 
 		public String getServerBitRate(){
@@ -231,19 +238,26 @@ public class S3Downloader extends S3UserStream {
 		
 		try{
 			_logger.close();
-		}catch(IOException e){
+			//must call to avoid VideoPlayer crash
+			_signalQueue.enqueue(getServerBitRate());
+		} catch(IOException e){
 			System.err.println("Could not close S3 logger!");
+		} catch (AmazonClientException ace) {
+			System.out.println("Caught an AmazonClientException, which means the client encountered "
+					+ "a serious internal problem while trying to communicate with S3, "
+					+ "such as not being able to access the network.");
+			System.out.println("Error Message: " + ace.getMessage());
 		}
 	}
 	
 	private ClientConfiguration configS3(){
 		ClientConfiguration config = new ClientConfiguration();
-//		config.setConnectionMaxIdleMillis(1000);
-//		config.setConnectionTimeout(1000);
-//		config.setConnectionTTL(1000);
-//		config.setRequestTimeout(1000);
-//		config.setClientExecutionTimeout(1000);
-//		config.setSocketTimeout(1000);
+		config.setConnectionMaxIdleMillis(1000);
+		config.setConnectionTimeout(1000);
+		config.setConnectionTTL(1000);
+		config.setRequestTimeout(1000);
+		config.setClientExecutionTimeout(1000);
+		config.setSocketTimeout(1000);
 		
 		return config;
 	}
@@ -273,9 +287,18 @@ public class S3Downloader extends S3UserStream {
 		int[] indeces;
 		String prefix = FileData.VIDEO_PREFIX;
 		String suffix = FileData.VIDEO_SUFFIX;
+		ObjectListing listing = null;
+		List<S3ObjectSummary> summaries = null;
 		
-		ObjectListing listing = _s3.listObjects(_bucketName, prefix );
-		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+		while(true){
+			try{
+				listing = _s3.listObjects(_bucketName, prefix );
+				summaries = listing.getObjectSummaries();
+				break;
+			} catch(ClientExecutionTimeoutException cete){
+				System.err.println("Attempting to read files in bucket");
+			}
+		}
 	
 		while (listing.isTruncated()) {
 		   listing = _s3.listNextBatchOfObjects(listing);
@@ -342,7 +365,7 @@ public class S3Downloader extends S3UserStream {
 					System.err.println("Can't locate video segment");
 					throw new IOException("Can't locate video segment...");
 				}
-				if(_isDone){
+				if(_isDone && key != FileData.BITRATE_FILE){
 					throw new IOException("Application closing...");
 				}
 			}
@@ -488,14 +511,7 @@ class S3DownloaderShutdownHook extends Thread {
 	}
 
 	public void run(){
-		if(!_downloader.isAlive()) return;
 		_downloader.end();
-		_downloader.interrupt();
-
-		try {
-			_downloader.join();
-		} catch (InterruptedException e) {
-			System.err.println(e);
-		}
+		try{_downloader.join();}catch(InterruptedException e){}
 	}
 }

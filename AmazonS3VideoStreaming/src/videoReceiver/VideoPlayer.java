@@ -9,11 +9,14 @@ import videoUtility.VideoSegment;
 import videoUtility.VideoSource;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 //Java package
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
+
+import com.amazonaws.services.ec2.model.Image;
 
 import performance.GNUPlotObject;
 import performance.GNUScriptParameters;
@@ -42,7 +45,7 @@ public class VideoPlayer extends VideoSource {
 	//-------------------------------------------------------------------------
 	//testing
 	private static final int NUM_OF_TESTS = 1;
-	private static final int SEGS_T0_PLAY = 10;	
+	private static final int SEGS_T0_PLAY = 1000;	
 	private int _tests = 0;
 
 	//metrics
@@ -51,10 +54,11 @@ public class VideoPlayer extends VideoSource {
 
 	private static DisplayFrame 	   _display;
 	private static S3Downloader 	   _downloader;
-	private static FileWriter		   _fw;
+	private static FileWriter		   _metricsWriter;
 	private static MetricsLogger	   _mLogger;
 	private static PerformanceLogger   _pLogger;
 	private static SharedQueue<String> _signalQueue;
+	private static Thread			   _displayThread;
 	private static double[] 		   _specs = new double[3];
 	//_specs: 0=Compression, 1=FPS, 2=SegmentLength; from setup file on S3
 	private VideoStream _stream;
@@ -74,9 +78,7 @@ public class VideoPlayer extends VideoSource {
 //		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		VideoPlayer player = new VideoPlayer();
 
-		initDisplay();
 		getSetupParameters();
-		if(FileData.ISLOGGING) initLogger();
 
 		player.start();
 	}
@@ -90,11 +92,8 @@ public class VideoPlayer extends VideoSource {
 
 while(_tests < NUM_OF_TESTS && !_isDone){
 		
-		if(_tests > 0) init();
-		
 		double endPlayTime, startPlayTime;
 		double fps = _specs[1];
-		long imgSize;
 		LinkedList<BufferedImage> frameList;
 		VideoSegment videoSegment = null;
 		
@@ -113,7 +112,8 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 			try {
 				//Always get most current frame
 				while(_stream.size() > 1){
-					_stream.getVideoSegment();
+					videoSegment = _stream.getVideoSegment();
+					_mLogger.logBytes(videoSegment.size());
 					if(FileData.ISLOGGING) _mLogger.logSegmentDrop();
 				}
 				if(FileData.ISLOGGING){
@@ -123,25 +123,34 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 				frameList = videoSegment.getImageList();
 				
 				if(FileData.ISLOGGING){
+					_mLogger.logBytes(videoSegment.size());
 					_mLogger.logSegmentPlay();
 					logVideoTransfer(videoSegment.getTimeStamp());
-					imgSize = videoSegment.size()/frameList.size();
 					startPlayTime = System.currentTimeMillis()/1000.0;
 					_mLogger.logBuffer(startPlayTime - endPlayTime);
 	//				_logger.logBytes(imgSize * (int)(_specs[1] * _specs[2]));//faster
+					_mLogger.setSegmentPixelSize((int)(frameList.get(0).getWidth()*_specs[0]),
+							(int)(frameList.get(0).getHeight()*_specs[0]), fps);
 				}
 				System.out.println("Playing '" + videoSegment.toString() + "'");
 
 				for(BufferedImage img : frameList){
 					_display.setCurrentFrame(img);
-					if(FileData.ISLOGGING) _mLogger.logBytes(imgSize);//more accurate
+					if(FileData.ISLOGGING) {
+						_mLogger.logFrame();
+//						DataBuffer buff = img.getRaster().getDataBuffer();
+//						int bytes = buff.getSize() * DataBuffer.getDataTypeSize(buff.getDataType()) / 8;
+//						_mLogger.logBytes(bytes);//more accurate
+					}
 					if(_isDone) break;
+//					System.out.println(fps);
 					Utility.pause((long)(1000/fps));
 				}
 				
 				if(FileData.ISLOGGING){
 					endPlayTime = System.currentTimeMillis()/1000.0;
 					_mLogger.logPlay(endPlayTime - startPlayTime);
+					System.out.println("PlayTime: " + (endPlayTime - startPlayTime));
 				}
 				
 			} catch (Exception e) {
@@ -150,16 +159,14 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 			}
 		}//end video play
 		
-		closeEverything();
 		
 		if(FileData.ISLOGGING){
-			_programStartTime = System.currentTimeMillis();
-			_mLogger.reset();
-			System.out.println("End test " + _tests);
-			_tests++;
+			System.out.println("End test " + _tests++);
+			reset();
+//			_mLogger.reset();
 		}
 }//end tests
-
+		closeEverything();
 		System.out.println("VideoPlayer successfully closed");
 	}
 
@@ -172,8 +179,6 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 	 * @see FrameDisplay
 	 */
 	private static void initDisplay(){
-		_display = null;
-
 		while(_display == null){
 			try{
 				System.out.println("Attempting to load display...");
@@ -185,6 +190,9 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 				Utility.pause(200);
 			}
 		}
+		_displayThread = new Thread(_display);
+		_displayThread.start();
+
 		System.out.println("Display initiated...");
 	}
 
@@ -254,10 +262,22 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 	}
 	
 	private void writeMetrics(){
+		double serverBitRate;
+		if(_downloader == null){
+			serverBitRate = Double.parseDouble(_signalQueue.dequeue());
+		} else{
+			try{
+				serverBitRate = getServerBitRate();
+			}catch(Exception e){
+				if(!_signalQueue.isEmpty()){
+					serverBitRate = Double.parseDouble(_signalQueue.dequeue());
+				} else { serverBitRate = -1; }
+			}
+		}
 		try {
-			_mLogger.logServerBitRate(getServerBitRate());
-			if(_tests == 0) _fw.write(_mLogger.toCSVwHeader());
-			else _fw.write(_mLogger.toCSV());
+			_mLogger.logServerBitRate(serverBitRate);
+			if(_tests == 1) _metricsWriter.write(_mLogger.toCSVwHeader());
+			else _metricsWriter.write(_mLogger.toCSV());
 //			_fw.write(_logger.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -273,26 +293,33 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 	 * Closes all closeable instances created.
 	 */
 	private void closeEverything(){
+		if(FileData.ISLOGGING) {
+			try {
+				writeMetrics();
+				if(_tests == NUM_OF_TESTS || _isDone){
+					_metricsWriter.close();
+					System.out.println("Successfully recorded '" 
+							+ FileData.METRICS_FILE + "'");
+				}
+				_pLogger.close();
+	
+			} catch (IOException e) {
+				System.err.println("VP: Failed to close log file!");;
+			}
+		}
+		
 		if(_downloader != null) {
 			_downloader.end();
-			_downloader.interrupt();
-			try {
-				_downloader.join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-			_downloader = null;
 		}
-		if(!FileData.ISLOGGING) return;
-
-		try {
-			writeMetrics();
-			if(_tests == NUM_OF_TESTS || _isDone) _fw.close();
-			_pLogger.close();
-
-		} catch (IOException e) {
-			System.err.println("VP: Failed to close log file!");;
+		_display.end();
+		try{
+			_downloader.join();
+			_displayThread.join();
+		} catch(InterruptedException e){
+			e.printStackTrace();
 		}
+		_display = null;
+		_downloader = null;
 	}
 	
 	private double getServerBitRate(){
@@ -305,7 +332,7 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 		_runnerStartTime = Long.parseLong(_signalQueue.dequeue());
 		_specs[0] = Double.parseDouble(_signalQueue.dequeue());//compression
 		_specs[1] = Double.parseDouble(_signalQueue.dequeue());//FPS
-		_specs[2] = Double.parseDouble(_signalQueue.dequeue());//segmentLength
+		_specs[2] = Double.parseDouble(_signalQueue.dequeue());//SegmentLength
 	}
 	
 	private void init(){
@@ -316,17 +343,22 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 		_downloader.setSignal(_signalQueue);
 		_downloader.start();
 		
-		if(!FileData.ISLOGGING) return;
+		if(FileData.ISLOGGING) {
 
-		_programStartTime = System.currentTimeMillis();
-		
-		try {
-			_fw = new FileWriter("videoStreamMetrics.csv");
-			
-		} catch(IOException e){
-			System.err.println("Cannot initialize metrics file");
-			System.exit(-1);
+			_programStartTime = System.currentTimeMillis();
+
+			if(_metricsWriter == null){
+				try {
+					_metricsWriter = new FileWriter(FileData.METRICS_FILE);
+					
+				} catch(IOException e){
+					System.err.println("Cannot initialize metrics file");
+					System.exit(-1);
+				}
+			}
+			initLogger();
 		}
+		initDisplay();
 	}
 	
 	/**
@@ -342,10 +374,17 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 		double delay = timeElapsed - videoStart;
 		
 		try {
+			_mLogger.logDelay(delay);
 			_pLogger.logVideoTransfer(currentTime, delay);
 		} catch (IOException e) {
 			System.err.println("VP: Failed to log video segment...");
 		}
+	}
+
+	private void reset(){
+		closeEverything();
+		_programStartTime = System.currentTimeMillis();
+		init();
 	}
 }
 
@@ -360,13 +399,7 @@ class VideoPlayerShutdownHook extends Thread {
 	}
 	
 	public void run(){
-		if(!_player.isAlive()) return;
 		_player.end();
-		_player.interrupt();
-		try {
-			_player.join();
-		} catch (InterruptedException e) {
-			System.err.println(e);
-		}
+		try{_player.join();}catch(InterruptedException e){}
 	}
 }

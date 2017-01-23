@@ -9,7 +9,7 @@ import javax.swing.border.EmptyBorder;
 
 
 @SuppressWarnings("serial")
-public class DisplayFrame extends JFrame {
+public class DisplayFrame extends JFrame implements Runnable {
 	private boolean _end;
 	private Image _img;
 	private JPanel contentPane;
@@ -28,8 +28,6 @@ public class DisplayFrame extends JFrame {
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		contentPane.setLayout(null);
-
-		new MyThread().start();
 	}
 
 	public void paint(Graphics g){
@@ -50,18 +48,18 @@ public class DisplayFrame extends JFrame {
 	}
 	
 	public void end(){
+		System.out.println("Attempting to close display...");
 		_end = true;
 	}
 	
-	class MyThread extends Thread{
-		@Override
-		public void run() {
-			while (!_end){
-				try {
-					repaint();
-					Thread.sleep(0);
-				} catch (InterruptedException e) { }
-			}  
+	public void run() {
+		while (!_end){
+			try {
+				repaint();
+				Thread.sleep(0);
+			} catch (InterruptedException e) { }
 		} 
-	}
+		this.dispose();
+		System.out.println("Display successfully closed!");
+	} 
 }
