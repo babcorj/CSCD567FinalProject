@@ -17,8 +17,11 @@ import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
@@ -63,16 +66,16 @@ public class ICCRunner extends VideoSource {
 	 */
 	private final static short MAX_VIDEO_INDEX = 500;
 	private final static short MAX_SEGMENTS = 20;
-	private final static float PERF_TOLERRANCE = 0.1f;
+	private final static float PERF_TOLERRANCE = 0.1f;//alarms when recording takes longer than it should
 	private final static boolean PREVIEW = false;
-	private final short TOTAL_SEGS_TO_PLAY = 60;
+	private final short TOTAL_SEGS_TO_PLAY = 1200;
 	private short _totalPlayed = 0;
 	
 	/*
 	 * ICCSetup is used to configure the video recorder settings
 	 */
 	private static ICCSetup _setup = new ICCSetup()
-			.setCompressionRatio(0.75)
+			.setCompressionRatio(.75)
 			.setDevice(0)
 			.setFourCC("MJPG")
 			.setFPS(6)
@@ -114,6 +117,7 @@ public class ICCRunner extends VideoSource {
 	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+//		loadLibrary();
 
 		ICCRunner iccr = new ICCRunner();
 		String loggerFilename = "RunnerLog_COMP-" + _setup.getCompressionRatio()
@@ -462,6 +466,49 @@ public class ICCRunner extends VideoSource {
 		return (short)(++videoSegment % MAX_VIDEO_INDEX);
 	}
 
+	private static void loadLibrary() {
+	    try {
+	        InputStream in = null;
+	        File fileOut = null;
+	        String osName = System.getProperty("os.name");
+	        System.out.println(osName);
+	        if(osName.startsWith("Windows")){
+	            int bitness = Integer.parseInt(System.getProperty("sun.arch.data.model"));
+	            if(bitness == 32){
+	                System.out.println("32 bit detected");
+	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
+	                fileOut = File.createTempFile("lib", ".dll");
+	            }
+	            else if (bitness == 64){
+	                System.out.println("64 bit detected");
+	                in = ICCRunner.class.getResourceAsStream("/opencv/x64/opencv_java245.dll");
+	                fileOut = File.createTempFile("lib", ".dll");
+	            }
+	            else{
+	                System.out.println("Unknown bit detected - trying with 32 bit");
+	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
+	                fileOut = File.createTempFile("lib", ".dll");
+	            }
+	        }
+	        else if(osName.equals("Mac OS X")){
+	            in = ICCRunner.class.getResourceAsStream("/opencv/mac/libopencv_java245.dylib");
+	            fileOut = File.createTempFile("lib", ".dylib");
+	        }
+	        else {
+	            in = ICCRunner.class.getResourceAsStream("/lib//opencv//libopencv_java245.so");
+	            fileOut = File.createTempFile("lib", ".so");
+	        }
+
+	        copy(in, fileOut);
+	        System.load(fileOut.toString());
+	    } catch (Exception e) {
+	        throw new RuntimeException("Failed to load opencv native library", e);
+	    }
+	    
+	    
+	    
+	}
+	
 	/**
 	 * Logs how long it takes to record a segment.
 	 * @param timeStarted		When the video first began recording.
@@ -490,7 +537,26 @@ public class ICCRunner extends VideoSource {
 		System.out.println("ICCR: Recorded " + video.toString());
 		_videoStream.enqueue(video);
 	}
+	
+	//helpers...
+	private static void copy(InputStream in, File file) throws IOException {
+		int read,
+			alreadyRead = 0,
+			size = in.available();
+		byte[] buffer = new byte[size];
+		FileOutputStream out = new FileOutputStream(file);
+		
+		while((read = in.read(buffer, alreadyRead, size)) > 0){
+			alreadyRead += read;
+			out.write(buffer);
+		}
+	
+		in.close();
+		out.close();
+	}
+
 }
+
 
 //-----------------------------------------------------------------------------
 //Shutdown Hook
