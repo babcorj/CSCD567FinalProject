@@ -33,6 +33,7 @@ public class VideoSegment {
 	public VideoSegment(){
 		//DVC
 	}
+	
 	/**
 	 * Constructor used when header information and video data are separately
 	 * known (used by the ICCRunner).
@@ -47,6 +48,7 @@ public class VideoSegment {
 		_header = header;
 		_header.setTimeStamp(System.currentTimeMillis());
 	}
+	
 	/**
 	 * Constructor uses data that contains both header and video segment info.
 	 * @param index			Index of video segment within video stream.

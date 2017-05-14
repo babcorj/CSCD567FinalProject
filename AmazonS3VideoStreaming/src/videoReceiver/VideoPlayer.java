@@ -9,14 +9,12 @@ import videoUtility.VideoSegment;
 import videoUtility.VideoSource;
 
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
+
 //Java package
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
-
-import com.amazonaws.services.ec2.model.Image;
 
 import performance.GNUPlotObject;
 import performance.GNUScriptParameters;

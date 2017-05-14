@@ -3,8 +3,6 @@ package performance;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
-import com.fasterxml.jackson.core.json.ByteSourceJsonBootstrapper;
-
 public class MetricsLogger {
 	
 	private int 	_bufferEvents = 0;
@@ -115,7 +113,6 @@ public class MetricsLogger {
 	public double getCSR(){ return ((double)(_framePlays - _bufferEvents))/_framePlays; }
 
 	public double getDelayAverage(){
-		
 		double average, sum = 0, count = _delay.size();
 		
 		if(count == 0) return 0;
@@ -179,7 +176,6 @@ public class MetricsLogger {
 
 	public void setSegmentPixelSize(int width, int height, double fps){
 		_pps = width * height * fps;
-		
 	}
 	
 	public void setStartTime(long time){ _startTime = time; }

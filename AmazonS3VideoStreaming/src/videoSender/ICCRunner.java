@@ -10,18 +10,17 @@ import performance.GNUScriptParameters;
 import performance.GNUScriptWriter;
 import performance.PerformanceLogger;
 import videoUtility.SharedQueue;
-import videoUtility.Utility;
 import videoUtility.VideoSegment;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
+//import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+//import java.io.InputStream;
+//import java.io.OutputStream;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
@@ -30,7 +29,6 @@ import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.videoio.VideoCapture;
-import org.opencv.videoio.Videoio;
 import org.opencv.imgproc.Imgproc;
 
 /**
@@ -44,10 +42,8 @@ import org.opencv.imgproc.Imgproc;
  * stored into an input stream and then uploaded to Amazon S3.
  * <p>
  * This version uses a video naming convention that lets the client know which 
- * video is most current. This improves on the last version by removing the
- * need for a playlist, which would have doubled the cost of using Amazon S3
- * (since the number of uploads would double with each playlist update).
- *
+ * video is most current.
+ * 
  * Used in Run configuration settings:
  * 	Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
  * 	System.out.println(System.getProperty("java.library.path"));
@@ -178,7 +174,6 @@ public class ICCRunner extends VideoSource {
 			try {
 				//capture and record video
 				if (!grabber.read(_mat)) {
-//					Utility.pause(15);
 					continue;
 				}
 				Imgproc.cvtColor(_mat, _mat, Imgproc.COLOR_BGR2GRAY);
@@ -235,7 +230,7 @@ public class ICCRunner extends VideoSource {
 					}
 					timeStarted = header.getTimeStamp();
 
-					if(++_totalPlayed == TOTAL_SEGS_TO_PLAY) end();
+					if(++_totalPlayed == TOTAL_SEGS_TO_PLAY && !PREVIEW) end();
 				}
 			}//end try
 			catch (Exception e) {
@@ -245,11 +240,6 @@ public class ICCRunner extends VideoSource {
 		closeEverything(grabber, segmentWriter);
 		System.out.println("Runner successfully closed");
 	}
-
-	//-------------------------------------------------------------------------
-	//Public methods
-	//-------------------------------------------------------------------------
-
 
 	//-------------------------------------------------------------------------
 	//Private static methods
@@ -466,48 +456,49 @@ public class ICCRunner extends VideoSource {
 		return (short)(++videoSegment % MAX_VIDEO_INDEX);
 	}
 
-	private static void loadLibrary() {
-	    try {
-	        InputStream in = null;
-	        File fileOut = null;
-	        String osName = System.getProperty("os.name");
-	        System.out.println(osName);
-	        if(osName.startsWith("Windows")){
-	            int bitness = Integer.parseInt(System.getProperty("sun.arch.data.model"));
-	            if(bitness == 32){
-	                System.out.println("32 bit detected");
-	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
-	                fileOut = File.createTempFile("lib", ".dll");
-	            }
-	            else if (bitness == 64){
-	                System.out.println("64 bit detected");
-	                in = ICCRunner.class.getResourceAsStream("/opencv/x64/opencv_java245.dll");
-	                fileOut = File.createTempFile("lib", ".dll");
-	            }
-	            else{
-	                System.out.println("Unknown bit detected - trying with 32 bit");
-	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
-	                fileOut = File.createTempFile("lib", ".dll");
-	            }
-	        }
-	        else if(osName.equals("Mac OS X")){
-	            in = ICCRunner.class.getResourceAsStream("/opencv/mac/libopencv_java245.dylib");
-	            fileOut = File.createTempFile("lib", ".dylib");
-	        }
-	        else {
-	            in = ICCRunner.class.getResourceAsStream("/lib//opencv//libopencv_java245.so");
-	            fileOut = File.createTempFile("lib", ".so");
-	        }
-
-	        copy(in, fileOut);
-	        System.load(fileOut.toString());
-	    } catch (Exception e) {
-	        throw new RuntimeException("Failed to load opencv native library", e);
-	    }
-	    
-	    
-	    
-	}
+	/**
+	 * Use function to load OpenCV library from OS. It is necessary to
+	 * use this function when converting this program to an executable.
+	 */
+//	private static void loadLibrary() {
+//	    try {
+//	        InputStream in = null;
+//	        File fileOut = null;
+//	        String osName = System.getProperty("os.name");
+//	        System.out.println(osName);
+//	        if(osName.startsWith("Windows")){
+//	            int bitness = Integer.parseInt(System.getProperty("sun.arch.data.model"));
+//	            if(bitness == 32){
+//	                System.out.println("32 bit detected");
+//	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
+//	                fileOut = File.createTempFile("lib", ".dll");
+//	            }
+//	            else if (bitness == 64){
+//	                System.out.println("64 bit detected");
+//	                in = ICCRunner.class.getResourceAsStream("/opencv/x64/opencv_java245.dll");
+//	                fileOut = File.createTempFile("lib", ".dll");
+//	            }
+//	            else{
+//	                System.out.println("Unknown bit detected - trying with 32 bit");
+//	                in = ICCRunner.class.getResourceAsStream("/opencv/x86/opencv_java245.dll");
+//	                fileOut = File.createTempFile("lib", ".dll");
+//	            }
+//	        }
+//	        else if(osName.equals("Mac OS X")){
+//	            in = ICCRunner.class.getResourceAsStream("/opencv/mac/libopencv_java245.dylib");
+//	            fileOut = File.createTempFile("lib", ".dylib");
+//	        }
+//	        else {
+//	            in = ICCRunner.class.getResourceAsStream("/lib//opencv//libopencv_java245.so");
+//	            fileOut = File.createTempFile("lib", ".so");
+//	        }
+//
+//	        copy(in, fileOut);
+//	        System.load(fileOut.toString());
+//	    } catch (Exception e) {
+//	        throw new RuntimeException("Failed to load opencv native library", e);
+//	    }
+//	}
 	
 	/**
 	 * Logs how long it takes to record a segment.
@@ -538,23 +529,22 @@ public class ICCRunner extends VideoSource {
 		_videoStream.enqueue(video);
 	}
 	
-	//helpers...
-	private static void copy(InputStream in, File file) throws IOException {
-		int read,
-			alreadyRead = 0,
-			size = in.available();
-		byte[] buffer = new byte[size];
-		FileOutputStream out = new FileOutputStream(file);
-		
-		while((read = in.read(buffer, alreadyRead, size)) > 0){
-			alreadyRead += read;
-			out.write(buffer);
-		}
-	
-		in.close();
-		out.close();
-	}
-
+	//Helper for loadLibrary function
+//	private static void copy(InputStream in, File file) throws IOException {
+//		int read,
+//			alreadyRead = 0,
+//			size = in.available();
+//		byte[] buffer = new byte[size];
+//		FileOutputStream out = new FileOutputStream(file);
+//		
+//		while((read = in.read(buffer, alreadyRead, size)) > 0){
+//			alreadyRead += read;
+//			out.write(buffer);
+//		}
+//	
+//		in.close();
+//		out.close();
+//	}
 }
 
 
