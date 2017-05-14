@@ -16,11 +16,6 @@ public class SharedQueue<E> implements Iterable<E> {
 	private int maxSize;
 	private boolean stop = false;
 
-	// public SharedQueue(){
-	// myList = new LinkedList<>();
-	// maxSize = 50;
-	// }
-
 	public SharedQueue(int size) {
 		myList = new LinkedList<>();
 		maxSize = size;
