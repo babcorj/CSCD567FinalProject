@@ -46,6 +46,7 @@ import org.opencv.imgproc.Imgproc;
  * 
  * Used in Run configuration settings:
  * 	Djava.library.path=/home/pi/Libraries/opencv-3.1.0/build/lib
+ *  Djava.library.path=C:\Libraries\opencv\build\java\x64\opencv_java320.dll
  * 	System.out.println(System.getProperty("java.library.path"));
 
  * @version v.3.1
@@ -112,7 +113,9 @@ public class ICCRunner extends VideoSource {
 	//Main
 	//-------------------------------------------------------------------------
 	public static void main(String[] args) {
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		String cvlib = "C:\\Libraries\\opencv\\build\\java\\x64\\opencv_java320.dll";
+		System.load(cvlib);
+//		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 //		loadLibrary();
 
 		ICCRunner iccr = new ICCRunner();

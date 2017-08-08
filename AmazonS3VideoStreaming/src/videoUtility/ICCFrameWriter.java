@@ -251,6 +251,16 @@ public class ICCFrameWriter {
 	 */
 	private BufferedImage convertToBufferedImage() throws IOException {
 		MatOfByte matBuffer = new MatOfByte();
+		System.out.println("Old: "+(_mat.total() * _mat.elemSize()));
+		Imgcodecs.imencode(_extension, _mat, matBuffer);
+		InputStream inStream = new ByteArrayInputStream(matBuffer.toArray());
+		BufferedImage img = ImageIO.read(inStream);
+		inStream.close();
+		return img;
+	}
+	
+	public BufferedImage getBufferedImage(Mat _mat) throws IOException {
+		MatOfByte matBuffer = new MatOfByte();
 		Imgcodecs.imencode(_extension, _mat, matBuffer);
 		InputStream inStream = new ByteArrayInputStream(matBuffer.toArray());
 		BufferedImage img = ImageIO.read(inStream);

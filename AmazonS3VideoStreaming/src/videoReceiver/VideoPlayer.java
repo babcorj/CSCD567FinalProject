@@ -123,7 +123,7 @@ while(_tests < NUM_OF_TESTS && !_isDone){
 				if(FileData.ISLOGGING){
 					_mLogger.logBytes(videoSegment.size());
 					_mLogger.logSegmentPlay();
-					logVideoTransfer(videoSegment.getTimeStamp());
+					logVideoTransfer(videoSegment.getTimeStamp());//log delay and performance
 					startPlayTime = System.currentTimeMillis()/1000.0;
 					_mLogger.logBuffer(startPlayTime - endPlayTime);
 	//				_logger.logBytes(imgSize * (int)(_specs[1] * _specs[2]));//faster

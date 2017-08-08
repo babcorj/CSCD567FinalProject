@@ -46,7 +46,6 @@ public class VideoSegment {
 		_data = data;
 		_index = index;
 		_header = header;
-		_header.setTimeStamp(System.currentTimeMillis());
 	}
 	
 	/**
@@ -98,7 +97,6 @@ public class VideoSegment {
 	}
 	public void setHeader(VideoSegmentHeader header){//should be called last
 		_header = header;
-		_header.setTimeStamp(System.currentTimeMillis());
 	}
 	
 	//-------------------------------------------------------------------------
